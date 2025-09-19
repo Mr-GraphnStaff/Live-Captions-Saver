@@ -10,6 +10,10 @@ const UI_ELEMENTS = {
     saveOptions: document.getElementById('saveOptions'),
     viewButton: document.getElementById('viewButton'),
     defaultSaveFormatSelect: document.getElementById('defaultSaveFormat'),
+    saveAsTypeSelect: document.getElementById('saveAsType'),
+    saveLocationInput: document.getElementById('saveLocation'),
+    saveLocationRow: document.getElementById('saveLocationRow'),
+    saveLocationHint: document.getElementById('saveLocationHint'),
     autoEnableCaptionsToggle: document.getElementById('autoEnableCaptionsToggle'),
     autoSaveOnEndToggle: document.getElementById('autoSaveOnEndToggle'),
     trackCaptionsToggle: document.getElementById('trackCaptionsToggle'),
@@ -141,6 +145,19 @@ function updateSaveButtonText(format) {
     UI_ELEMENTS.saveButton.textContent = format === 'ai' ? 'Save for AI' : `Save as ${format.toUpperCase()}`;
 }
 
+function updateSaveLocationVisibility(type) {
+    const showCustom = type === 'custom';
+    if (UI_ELEMENTS.saveLocationRow) {
+        UI_ELEMENTS.saveLocationRow.style.display = showCustom ? 'flex' : 'none';
+    }
+    if (UI_ELEMENTS.saveLocationHint) {
+        UI_ELEMENTS.saveLocationHint.style.display = showCustom ? 'block' : 'none';
+    }
+    if (UI_ELEMENTS.saveLocationInput) {
+        UI_ELEMENTS.saveLocationInput.disabled = !showCustom;
+    }
+}
+
 async function renderSpeakerAliases(tab) {
     const { speakerAliasList } = UI_ELEMENTS;
     try {
@@ -253,6 +270,8 @@ async function loadSettings() {
         'autoSaveOnEnd',
         'aiInstructions',
         'defaultSaveFormat',
+        'saveAsType',
+        'saveLocation',
         'trackCaptions',
         'trackAttendees',
         'autoOpenAttendees',
@@ -276,6 +295,16 @@ async function loadSettings() {
     currentDefaultFormat = settings.defaultSaveFormat || 'txt';
     UI_ELEMENTS.defaultSaveFormatSelect.value = currentDefaultFormat;
     updateSaveButtonText(currentDefaultFormat);
+
+    if (UI_ELEMENTS.saveAsTypeSelect) {
+        const saveAsType = settings.saveAsType || 'prompt';
+        UI_ELEMENTS.saveAsTypeSelect.value = saveAsType;
+        updateSaveLocationVisibility(saveAsType);
+    }
+
+    if (UI_ELEMENTS.saveLocationInput) {
+        UI_ELEMENTS.saveLocationInput.value = settings.saveLocation || '';
+    }
 }
 
 // --- Event Handling ---
@@ -286,6 +315,20 @@ function setupEventListeners() {
         chrome.storage.sync.set({ defaultSaveFormat: currentDefaultFormat });
         updateSaveButtonText(currentDefaultFormat);
     });
+
+    if (UI_ELEMENTS.saveAsTypeSelect) {
+        UI_ELEMENTS.saveAsTypeSelect.addEventListener('change', (e) => {
+            const selectedType = e.target.value;
+            chrome.storage.sync.set({ saveAsType: selectedType });
+            updateSaveLocationVisibility(selectedType);
+        });
+    }
+
+    if (UI_ELEMENTS.saveLocationInput) {
+        UI_ELEMENTS.saveLocationInput.addEventListener('input', (e) => {
+            chrome.storage.sync.set({ saveLocation: e.target.value.trim() });
+        });
+    }
 
     UI_ELEMENTS.trackCaptionsToggle.addEventListener('change', (e) => {
         chrome.storage.sync.set({ trackCaptions: e.target.checked });
