@@ -10,6 +10,7 @@ The MS Teams Live Captions Saver (SaveAs Fork) builds on the original extension,
 
 ## Current Enhancements
 - `saveAs` option → lets users choose where transcripts are saved instead of forcing the default Downloads folder.
+- Save behavior controls with optional custom download folder support.
 
 ## Planned Enhancements
 - Streamlined UI for PWA users.

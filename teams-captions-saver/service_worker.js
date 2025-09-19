@@ -10,6 +10,32 @@ function getSanitizedMeetingName(fullTitle) {
 }
 
 
+function sanitizeSubfolderPath(path) {
+    if (!path) {
+        return '';
+    }
+
+    return path
+        .split(/[\\/]+/)
+        .map(segment => segment.trim().replace(/[<>:"/\\|?*\x00-\x1F]/g, '_'))
+        .filter(Boolean)
+        .join('/');
+}
+
+async function resolveSavePreferences({ forAutoSave = false } = {}) {
+    const settings = await chrome.storage.sync.get(['saveAsType', 'saveLocation']);
+    const saveAsType = settings.saveAsType || 'prompt';
+
+    // Auto-save should never show a dialog
+    const saveAs = !forAutoSave && saveAsType === 'prompt';
+    const subfolder = saveAsType === 'custom'
+        ? sanitizeSubfolderPath(settings.saveLocation || '')
+        : '';
+
+    return { saveAs, subfolder };
+}
+
+
 function applyAliasesToTranscript(transcriptArray, aliases = {}) {
     if (Object.keys(aliases).length === 0) {
         return transcriptArray;
@@ -204,13 +230,21 @@ async function generateFilename(pattern, meetingTitle, format, attendeeReport) {
     return filename;
 }
 
-async function saveTranscript(meetingTitle, transcriptArray, aliases, format, recordingStartTime, saveAsPrompt, attendeeReport = null) {
+async function saveTranscript(meetingTitle, transcriptArray, aliases, format, recordingStartTime, saveOptions = {}, attendeeReport = null) {
     const processedTranscript = applyAliasesToTranscript(transcriptArray, aliases);
     const processedAttendeeReport = applyAliasesToAttendeeReport(attendeeReport, aliases);
-    
+
     // Get filename pattern from settings
     const { filenamePattern } = await chrome.storage.sync.get('filenamePattern');
     const filename = await generateFilename(filenamePattern, meetingTitle, format, processedAttendeeReport);
+
+    let normalizedOptions = saveOptions;
+    if (typeof saveOptions === 'boolean' || saveOptions === undefined) {
+        normalizedOptions = { saveAs: saveOptions !== false };
+    }
+
+    const { saveAs = true, subfolder = '' } = normalizedOptions || {};
+    const sanitizedFolder = sanitizeSubfolderPath(subfolder);
 
     let content, extension, mimeType;
 
@@ -249,10 +283,10 @@ async function saveTranscript(meetingTitle, transcriptArray, aliases, format, re
             mimeType = 'text/plain';
             break;
     }
-    
+
     // Add extension to filename
-    const fullFilename = `${filename}.${extension}`;
-    downloadFile(fullFilename, content, mimeType, saveAsPrompt);
+    const fullFilename = sanitizedFolder ? `${sanitizedFolder}/${filename}.${extension}` : `${filename}.${extension}`;
+    downloadFile(fullFilename, content, mimeType, saveAs);
 }
 
 // --- State Management ---
@@ -402,7 +436,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     hasAttendeeReport: !!message.attendeeReport,
                     attendeeCount: message.attendeeReport?.totalUniqueAttendees || 0
                 });
-                await saveTranscript(message.meetingTitle, message.transcriptArray, speakerAliases, message.format, message.recordingStartTime, true, message.attendeeReport);
+                {
+                    const saveOptions = await resolveSavePreferences({ forAutoSave: false });
+                    await saveTranscript(
+                        message.meetingTitle,
+                        message.transcriptArray,
+                        speakerAliases,
+                        message.format,
+                        message.recordingStartTime,
+                        saveOptions,
+                        message.attendeeReport
+                    );
+                }
                 break;
 
             case 'save_on_leave':
@@ -417,13 +462,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 
                 autoSaveInProgress = true;
                 lastAutoSaveId = saveId;
-                
+
                 try {
                     const settings = await chrome.storage.sync.get(['autoSaveOnEnd', 'defaultSaveFormat']);
                     if (settings.autoSaveOnEnd && message.transcriptArray.length > 0) {
                         const formatToSave = settings.defaultSaveFormat || 'txt';
                         console.log(`Auto-saving transcript in ${formatToSave.toUpperCase()} format.`);
-                        await saveTranscript(message.meetingTitle, message.transcriptArray, speakerAliases, formatToSave, message.recordingStartTime, false, message.attendeeReport);
+                        const saveOptions = await resolveSavePreferences({ forAutoSave: true });
+                        await saveTranscript(
+                            message.meetingTitle,
+                            message.transcriptArray,
+                            speakerAliases,
+                            formatToSave,
+                            message.recordingStartTime,
+                            saveOptions,
+                            message.attendeeReport
+                        );
                         console.log('Auto-save completed successfully.');
                     }
                 } catch (error) {

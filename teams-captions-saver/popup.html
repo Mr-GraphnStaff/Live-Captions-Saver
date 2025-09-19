@@ -434,6 +434,19 @@
                 </select>
             </div>
             <div class="setting-item">
+                <label for="saveAsType" class="setting-label">Save Behavior</label>
+                <select id="saveAsType" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="prompt">Ask every time (Save As dialog)</option>
+                    <option value="default">Auto-save to browser folder</option>
+                    <option value="custom">Auto-save to custom folder</option>
+                </select>
+            </div>
+            <div class="setting-item" id="saveLocationRow" style="display: none;">
+                <label for="saveLocation" class="setting-label">Save Location</label>
+                <input type="text" id="saveLocation" placeholder="Transcripts/Meetings" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+            </div>
+            <p class="small-info-text" id="saveLocationHint" style="display: none;">Files save inside your Downloads folder. Use folders like <kbd>Transcripts/Teams</kbd>.</p>
+            <div class="setting-item">
                 <label for="autoSaveOnEndToggle" class="setting-label">Auto-Save on Meeting End</label>
                 <label class="toggle-switch"><input type="checkbox" id="autoSaveOnEndToggle"><span class="slider"></span></label>
             </div>
