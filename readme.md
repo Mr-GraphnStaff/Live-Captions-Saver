@@ -12,10 +12,32 @@ The MS Teams Live Captions Saver (SaveAs Fork) builds on the original extension,
 - `saveAs` option → lets users choose where transcripts are saved instead of forcing the default Downloads folder.
 
 ## Planned Enhancements
-- Streamlined UI for PWA users.  
-- Lean export options (trim AI/analytics features for lightweight use).  
-- Improved filename patterns and timestamp handling.  
+- Streamlined UI for PWA users.
+- Lean export options (trim AI/analytics features for lightweight use).
+- Improved filename patterns and timestamp handling.
 
+## Development Setup
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) **18.x or newer** (required by the tooling in this fork)
+- npm **9.x or newer** (bundled with recent Node releases)
+
+### Install Tooling
+```bash
+npm install
+```
+
+### Common Tasks
+- `npm run lint` → Runs a lightweight manifest and asset check to confirm required files are present
+- `npm run start` → Launches the extension in a Chromium browser via `web-ext run`. Use `CHROMIUM_BIN=/path/to/browser npm run start` if automatic detection fails.
+- `npm run build` → Creates a production-ready ZIP in `dist/` using `web-ext build`
+
+### Manual Loading for Local Testing
+You can still load the unpacked extension directly:
+1. Run `npm run build` **or** use the `teams-captions-saver/` folder.
+2. Open the extensions page in your browser (`chrome://extensions`, `edge://extensions`, or `brave://extensions`).
+3. Enable **Developer mode**.
+4. Choose **Load unpacked** and point to the `teams-captions-saver/` directory or select the generated ZIP in `dist/`.
 
 
 ![](IMG/logo.png)
