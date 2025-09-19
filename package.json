@@ -1,0 +1,17 @@
+{
+  "name": "teams-live-captions-saver",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Developer tooling for the MS Teams Live Captions Saver fork.",
+  "scripts": {
+    "lint": "node scripts/check-extension.mjs",
+    "build": "web-ext build --source-dir teams-captions-saver --artifacts-dir dist --overwrite-dest",
+    "start": "web-ext run --source-dir teams-captions-saver --target=chromium"
+  },
+  "devDependencies": {
+    "web-ext": "^8.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
