@@ -1,4 +1,25 @@
+# MS Teams Live Captions Saver (SaveAs Fork)
+
+> **Note:** This project is a fork of [Zerg00s/Live-Captions-Saver](https://github.com/Zerg00s/Live-Captions-Saver) by Denis Molodtsov.  
+> Original project is licensed under MIT.  
+> This fork begins with adding **Save As support** (choose download location) and will expand with additional features and simplifications tailored for Teams PWA.
+
+---
+
+The MS Teams Live Captions Saver (SaveAs Fork) builds on the original extension, adding new functionality and customizations.  
+
+## Current Enhancements
+- `saveAs` option → lets users choose where transcripts are saved instead of forcing the default Downloads folder.
+
+## Planned Enhancements
+- Streamlined UI for PWA users.  
+- Lean export options (trim AI/analytics features for lightweight use).  
+- Improved filename patterns and timestamp handling.  
+
+
+
 ![](IMG/logo.png)
+
 
 # MS Teams Live Captions Saver Browser Extension v4.5
 
