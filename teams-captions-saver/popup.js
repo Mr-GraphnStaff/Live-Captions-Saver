@@ -26,6 +26,8 @@ const UI_ELEMENTS = {
     saveTemplateBtn: document.getElementById('saveTemplateBtn'),
     deleteTemplateBtn: document.getElementById('deleteTemplateBtn'),
     customTemplatesGroup: document.getElementById('customTemplatesGroup'),
+    aiProvider: document.getElementById('aiProvider'),
+    aiProviderDescription: document.getElementById('aiProviderDescription'),
     aiInstructions: document.getElementById('aiInstructions'),
     speakerAliasList: document.getElementById('speaker-alias-list'),
     promptButtons: document.querySelectorAll('.prompt-button'),
@@ -48,7 +50,31 @@ const MEETING_TYPE_PROMPTS = {
     "brainstorm": "You are an innovation strategist maximizing creative output. Organize this session into:\n\n## Session Objective\nWhat problem were we trying to solve?\n\n## Ideas Generated (Grouped by Theme)\nOrganize ideas into logical categories:\n\n### Category 1\n- Idea (contributor)\n- Build on this: [related ideas]\n\n### Category 2\n- Continue pattern...\n\n## Top Ideas by Engagement\nList 5-7 ideas that generated most discussion/excitement:\n1. Idea - Why it resonated\n2. Continue...\n\n## Feasibility Quick Assessment\n| Idea | Impact | Effort | Priority |\n| --- | --- | --- | --- |\n| Top ideas... | High/Med/Low | High/Med/Low | 1-5 |\n\n## Wild Cards\nUnconventional ideas worth noting (even if not practical)\n\n## Next Steps\n- Which ideas move to validation?\n- Who owns follow-up?\n- Timeline for decisions\n\n## Parking Lot\nGood ideas outside current scope\n\n## Session Effectiveness\n- Participation level\n- Diversity of ideas\n- Did we meet objective?\n\nCapture the energy and creativity while maintaining actionable output."
 };
 
+const AI_TOOL_PROFILES = {
+    chatgpt: {
+        name: 'ChatGPT',
+        description: 'Optimized for ChatGPT with action-item tables and timestamp callouts.',
+        prompt: `You are ChatGPT acting as a project coordinator analyzing a Microsoft Teams meeting transcript. Focus on surfacing open tasks, owners, due dates, blockers, and unresolved questions. Produce Markdown with the following sections:\n\n## Quick Context\n- Two bullet points summarizing the meeting purpose and current status.\n\n## Open Tasks & Owners\nCreate a table with columns: Task | Owner | Due Date | Status/Notes. Use "Unassigned" or "TBD" when details are missing. Reference timestamps in parentheses when helpful.\n\n## Blockers & Risks\nBullet list of anything preventing progress or requiring escalation. Note the speaker and timestamp if available.\n\n## Follow-ups & Decisions\nBullet list of decisions made and follow-up questions that remain. Pair each item with the responsible owner.\n\n## Next Steps Summary\nProvide 2-3 bullets describing the immediate next actions.\n\nKeep the tone concise and action-oriented.`,
+    },
+    claude: {
+        name: 'Claude',
+        description: 'Great for narrative briefings that highlight commitments and unanswered questions.',
+        prompt: `You are Claude from Anthropic serving as a chief of staff reviewing a Microsoft Teams meeting transcript. Identify concrete commitments, outstanding requests, and anything that needs clarification. Return Markdown with:\n\n## Meeting Snapshot\n- One sentence on the meeting goal.\n- One sentence on the overall outcome.\n\n## Action Register\nTable columns: Owner | Commitment | Due Date/Timing | Notes. Highlight blockers or clarification needed in Notes. Use "TBD" when timing is unknown.\n\n## Pending Questions\nBullet list of unanswered questions or decisions that still need input. Include who should respond.\n\n## Risks & Dependencies\nBullet list of risks, dependencies, or cross-team impacts that could affect the tasks.\n\n## Recommended Follow-ups\nNumbered list of what should happen next and who should drive it.\n\nKeep language empathetic but direct, and call out when ownership is unclear.`,
+    },
+    gemini: {
+        name: 'Gemini',
+        description: 'Structured for Google Gemini with emphasis on confidence levels and checkpoints.',
+        prompt: `You are Google Gemini acting as a delivery tracker for the following Microsoft Teams transcript. Extract the work that remains and what needs clarification. Respond in Markdown with:\n\n## Key Themes\nProvide three bullets capturing the dominant topics.\n\n## Open Work Items\nTable columns: Work Item | Owner | Target Date | Confidence (High/Med/Low) | Notes. Mark missing information as "TBD" and mention relevant timestamps.\n\n## Open Questions & Clarifications\nBullet list of questions the team still needs answered. Suggest the most relevant owner for each.\n\n## Stakeholder Promises\nBullet list of commitments made to customers or stakeholders, including who promised and any dates.\n\n## Next Checkpoints\nBullet list of upcoming milestones, reviews, or follow-up meetings that should be scheduled.`,
+    },
+    custom: {
+        name: 'Custom Workflow',
+        description: 'Start from a blank slate and craft your own instructions for AI analysis.',
+        prompt: '',
+    }
+};
+
 let currentDefaultFormat = 'txt';
+let currentAiProvider = 'chatgpt';
 
 // --- Error Handling ---
 function safeExecute(fn, context = '', fallback = null) {
@@ -73,7 +99,11 @@ async function getActiveTeamsTab() {
     return teamsTab || null;
 }
 
-async function formatTranscript(transcript, aliases, type = 'standard') {
+async function formatTranscript(transcript, aliases = {}, type = 'standard') {
+    if (!Array.isArray(transcript)) {
+        return '';
+    }
+
     const processed = transcript.map(entry => ({
         ...entry,
         Name: aliases[entry.Name] || entry.Name
@@ -86,6 +116,15 @@ async function formatTranscript(transcript, aliases, type = 'standard') {
     }
 
     return processed.map(entry => `[${entry.Time}] ${entry.Name}: ${entry.Text}`).join('\n');
+}
+
+function updateAiProviderDescription(providerKey) {
+    if (!UI_ELEMENTS.aiProviderDescription) {
+        return;
+    }
+
+    const profile = AI_TOOL_PROFILES[providerKey];
+    UI_ELEMENTS.aiProviderDescription.textContent = profile?.description || 'Create your own instructions for AI processing.';
 }
 
 // --- UI Update Functions ---
@@ -269,6 +308,7 @@ async function loadSettings() {
         'autoEnableCaptions',
         'autoSaveOnEnd',
         'aiInstructions',
+        'aiProvider',
         'defaultSaveFormat',
         'saveAsType',
         'saveLocation',
@@ -289,7 +329,21 @@ async function loadSettings() {
     }
     UI_ELEMENTS.timestampFormat.value = settings.timestampFormat || '12hr';
     UI_ELEMENTS.filenamePattern.value = settings.filenamePattern || '{date}_{title}_{format}';
-    UI_ELEMENTS.aiInstructions.value = settings.aiInstructions || '';
+    currentAiProvider = settings.aiProvider || 'chatgpt';
+    if (UI_ELEMENTS.aiProvider) {
+        UI_ELEMENTS.aiProvider.value = currentAiProvider;
+    }
+    updateAiProviderDescription(currentAiProvider);
+
+    if (settings.aiInstructions) {
+        UI_ELEMENTS.aiInstructions.value = settings.aiInstructions;
+    } else {
+        const preset = AI_TOOL_PROFILES[currentAiProvider];
+        UI_ELEMENTS.aiInstructions.value = preset?.prompt || '';
+        if (preset?.prompt) {
+            await chrome.storage.sync.set({ aiInstructions: preset.prompt });
+        }
+    }
     UI_ELEMENTS.manualStartInfo.style.display = settings.autoEnableCaptions ? 'none' : 'block';
 
     currentDefaultFormat = settings.defaultSaveFormat || 'txt';
@@ -327,6 +381,26 @@ function setupEventListeners() {
     if (UI_ELEMENTS.saveLocationInput) {
         UI_ELEMENTS.saveLocationInput.addEventListener('input', (e) => {
             chrome.storage.sync.set({ saveLocation: e.target.value.trim() });
+        });
+    }
+
+    if (UI_ELEMENTS.aiProvider) {
+        UI_ELEMENTS.aiProvider.addEventListener('change', async (e) => {
+            const selectedProvider = e.target.value;
+            const previousProvider = currentAiProvider;
+            currentAiProvider = selectedProvider;
+            await chrome.storage.sync.set({ aiProvider: selectedProvider });
+            updateAiProviderDescription(selectedProvider);
+
+            const currentText = UI_ELEMENTS.aiInstructions.value.trim();
+            const previousPreset = AI_TOOL_PROFILES[previousProvider]?.prompt?.trim() || '';
+            const shouldApplyPreset = currentText.length === 0 || currentText === previousPreset;
+            const preset = AI_TOOL_PROFILES[selectedProvider];
+
+            if (shouldApplyPreset) {
+                UI_ELEMENTS.aiInstructions.value = preset?.prompt || '';
+                UI_ELEMENTS.aiInstructions.dispatchEvent(new Event('change'));
+            }
         });
     }
 

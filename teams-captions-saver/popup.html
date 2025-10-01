@@ -496,10 +496,20 @@
         </div>
 
         <div class="settings-group">
-             <p class="settings-subheader">AI Customization</p>
-             <label for="aiInstructions" class="setting-label" style="margin-bottom: 5px;">Custom AI Instructions</label>
-             <p class="small-info-text" style="margin: 0 0 8px 0;">This text is used for "Copy/Save for AI" actions.</p>
-             <textarea id="aiInstructions" rows="4" placeholder="Example: Summarize this transcript into key action items..."></textarea>
+            <p class="settings-subheader">AI Customization</p>
+            <div class="setting-item">
+                <label for="aiProvider" class="setting-label">Preferred AI Assistant</label>
+                <select id="aiProvider" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="chatgpt">ChatGPT</option>
+                    <option value="claude">Claude</option>
+                    <option value="gemini">Gemini</option>
+                    <option value="custom">Custom Workflow</option>
+                </select>
+            </div>
+            <p class="small-info-text" id="aiProviderDescription">Each assistant loads a tailored prompt to surface open tasks and follow-ups.</p>
+            <label for="aiInstructions" class="setting-label" style="margin-bottom: 5px;">Custom AI Instructions</label>
+            <p class="small-info-text" style="margin: 0 0 8px 0;">This text is used for "Copy/Save for AI" actions.</p>
+            <textarea id="aiInstructions" rows="4" placeholder="Example: Summarize this transcript into key action items..."></textarea>
             <div style="margin: 8px 0;">
                 <label for="meetingType" class="setting-label" style="font-size: 12px;">Meeting Type Templates:</label>
                 <div style="display: flex; gap: 5px; margin-bottom: 8px;">
