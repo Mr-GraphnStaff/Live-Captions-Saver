@@ -53,6 +53,7 @@ let autoEnableLastAttempt = 0;
 let autoEnableDebounceTimer = null;
 let autoSaveTriggered = false;
 let lastMeetingId = null;
+let timestampPreference = '12hr';
 
 // --- Attendee Tracking State ---
 let attendeeUpdateInterval = null;
@@ -64,6 +65,46 @@ let attendeeData = {
     lastUpdated: null,
     meetingStartTime: null,
 };
+
+// --- Timestamp Preferences ---
+(async () => {
+    try {
+        const { timestampFormat } = await chrome.storage.sync.get('timestampFormat');
+        if (timestampFormat) {
+            timestampPreference = timestampFormat;
+        }
+    } catch (error) {
+        console.warn('[Teams Caption Saver] Failed to load timestamp preference:', error);
+    }
+})();
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'sync' && changes.timestampFormat) {
+        timestampPreference = changes.timestampFormat.newValue || '12hr';
+    }
+});
+
+function formatTimestamp(date = new Date()) {
+    if (timestampPreference === 'relative') {
+        if (!(recordingStartTime instanceof Date)) {
+            return '00:00:00';
+        }
+        const diffMs = Math.max(0, date - recordingStartTime);
+        const totalSeconds = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return [hours, minutes, seconds].map((value) => value.toString().padStart(2, '0')).join(':');
+    }
+
+    const options = {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: timestampPreference !== '24hr'
+    };
+    return date.toLocaleTimeString([], options);
+}
 
 // --- Real-time Broadcasting ---
 function broadcastCaptionUpdate(data) {
@@ -207,7 +248,7 @@ const processCaptionUpdates = ErrorHandler.wrap(function() {
             }
 
             const existingIndex = transcriptArray.findIndex(entry => entry.key === captionId);
-            const time = new Date().toLocaleTimeString();
+            const time = formatTimestamp();
 
             if (existingIndex !== -1) {
                 // Update existing entry if text has changed
@@ -240,7 +281,7 @@ const processCaptionUpdates = ErrorHandler.wrap(function() {
 function updateAttendeesFromTranscript() {
     // Fallback method: Extract unique speakers from transcript
     const speakers = [...new Set(transcriptArray.map(item => item.Name))];
-    const currentTime = new Date().toLocaleTimeString();
+    const currentTime = formatTimestamp();
     
     speakers.forEach(name => {
         if (!attendeeData.allAttendees.has(name)) {
@@ -272,7 +313,7 @@ function updateAttendeeList() {
         }
         
         const attendeeItems = document.querySelectorAll(SELECTORS.ATTENDEE_ITEM);
-        const currentTime = new Date().toLocaleTimeString();
+        const currentTime = formatTimestamp();
         
         // Clear current attendees for fresh update
         const previousAttendees = new Set(attendeeData.currentAttendees.keys());

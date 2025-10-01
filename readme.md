@@ -11,11 +11,14 @@ The MS Teams Live Captions Saver (SaveAs Fork) builds on the original extension,
 ## Current Enhancements
 - `saveAs` option → lets users choose where transcripts are saved instead of forcing the default Downloads folder.
 - Save behavior controls with optional custom download folder support.
+- Streamlined popup optimized for Microsoft Teams PWA with touch-friendly actions.
+- Lean export workflow focused on TXT and Markdown with simplified copy options.
+- Enhanced filename variables and timestamp preferences, including relative timers for meetings.
 
 ## Planned Enhancements
-- Streamlined UI for PWA users.
-- Lean export options (trim AI/analytics features for lightweight use).
-- Improved filename patterns and timestamp handling.
+- Quick filters for session history (search by meeting title or date).
+- Optional transcript trimming for long-running meetings.
+- Additional visual themes for light/dark PWA environments.
 
 ## Development Setup
 
@@ -46,25 +49,18 @@ You can still load the unpacked extension directly:
 
 # MS Teams Live Captions Saver Browser Extension v4.5
 
-The MS Teams Live Captions Saver is a powerful Chrome extension that captures, saves, and analyzes live captions from Microsoft Teams meetings. With advanced features like AI-powered summaries, speaker tracking, attendee monitoring, and automated exports, it's the perfect tool for meeting documentation and accessibility.
+The MS Teams Live Captions Saver is a streamlined Chrome extension that captures and exports live captions from Microsoft Teams meetings. This fork focuses on lightweight, PWA-friendly workflows so you can save transcripts quickly without extra overhead.
 
 ## Key Features
 
-### Core Functionality
-- **Real-time Caption Capture** - Automatically captures live captions during Teams meetings
-- **Multiple Export Formats** - Save as TXT, Markdown, JSON, YAML, DOC, or AI-optimized formats
-- **Speaker Identification & Aliasing** - Track who said what with customizable speaker names
-- **Attendee Tracking** - Monitor meeting participants with join/leave timestamps
-- **Auto-Save on Meeting End** - Never lose your transcripts with automatic saving
-
-### Advanced Features
-- **AI-Powered Templates** - 9 built-in meeting templates (Standup, Retrospective, Planning, etc.)
-- **AI Assistant Profiles** - Load ChatGPT, Claude, or Gemini prompts tuned for finding open tasks
-- **Custom AI Instructions** - Create and save your own AI analysis templates
-- **Meeting Analytics Dashboard** - View speaker participation, word counts, and statistics
-- **Live Transcript Viewer** - Search and filter transcripts in real-time
-- **Customizable Filename Patterns** - Use variables like {date}, {time}, {title}, {attendees}
-- **Multiple Timestamp Formats** - Choose between 12-hour, 24-hour, or relative timestamps
+- **Real-time Caption Capture** — Automatically captures live captions during Teams meetings.
+- **Lean Export Formats** — Save as TXT or Markdown with Save As support and custom sub-folders.
+- **Speaker Identification & Aliasing** — Track who said what with customizable speaker names.
+- **Optional Attendee Tracking** — Monitor meeting participants with join/leave timestamps.
+- **Auto-Save on Meeting End** — Never lose your transcripts with automatic saving.
+- **Custom Filename Patterns** — Use variables like `{date}`, `{time}`, `{datetime}`, `{title}`, `{format}`, `{attendees}`.
+- **Flexible Timestamp Formats** — Choose between 12-hour, 24-hour, or relative meeting timers.
+- **Session History & Viewer** — Reopen, export, or delete past meetings directly from the popup.
 
 ## Install from the Chrome Store
 
@@ -95,7 +91,7 @@ The extension popup provides:
 - **Quick export buttons** with dropdown format selection
 - **Speaker alias management** for correcting names
 - **Auto-save configuration** with customizable settings
-- **AI template selection** for intelligent summaries
+- **Lean settings** for timestamp style, auto-save behavior, and filename patterns
 
 ## Transcript Viewer
 
@@ -114,7 +110,7 @@ Click "View Transcript" to open the interactive viewer with:
 
 ![Advanced Settings](IMG/Extension%20Popup%202.png)
 
-*AI customization and meeting features configuration*
+*Lean meeting automation and timestamp controls*
 
 ### Meeting Features
 - **Auto-start Live Captions** - Automatically enables Teams captions when joining
@@ -122,20 +118,10 @@ Click "View Transcript" to open the interactive viewer with:
 - **Timestamp Format Options** - Customize time display format
 - **Filename Pattern Variables** - Create dynamic file names
 
-### AI Customization
-- **9 Built-in Templates**:
-  - Executive Summary
-  - Daily Standup
-  - Sprint Retrospective
-  - Sprint Planning
-  - Design Review
-  - Interview Notes
-  - All Hands Meeting
-  - One-on-One
-  - Brainstorming Session
-- **Custom Templates** - Save your own AI prompts for reuse
-- **AI Assistant Selector** - Swap between ChatGPT, Claude, Gemini, or a custom workflow prompt for task-focused analysis
-- **Quick Template Buttons** - One-click access to common analyses
+### Lean Controls
+- **Relative Timers** - Track how long a discussion has been running with zero-based timestamps.
+- **Save Behavior** - Choose between Save As prompts or background auto-save to preset folders.
+- **PWA-Friendly Layout** - Buttons sized for touch and narrow popup widths.
 
 ## Standalone Console Script
 
@@ -162,18 +148,9 @@ For environments where browser extensions cannot be installed:
 
 ### Standard Formats
 - **TXT** - Plain text with timestamps
-- **Markdown** - Formatted with speaker sections
-- **JSON** - Structured data with metadata
-- **YAML** - Human-readable structured format
-- **DOC** - Microsoft Word document
+- **Markdown** - Formatted with speaker sections ready for notes
 
-### AI-Optimized Format
-Includes special formatting and instructions for AI analysis:
-- Meeting context and metadata
-- Structured transcript for LLM processing
-- Template-specific prompts
-- Action item extraction
-- Decision tracking
+Lean exports honor the timestamp style you choose (12-hour, 24-hour, or relative) and support filename variables such as `{date}`, `{time}`, `{datetime}`, `{title}`, `{format}`, and `{attendees}`.
 
 ## Manual Installation (Developer Mode)
 

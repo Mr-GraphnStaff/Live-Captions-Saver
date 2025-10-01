@@ -150,29 +150,6 @@ function formatAsDoc(transcript, attendeeReport) {
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Meeting Transcript</title></head><body>${body}</body></html>`;
 }
 
-async function formatForAi(transcript, meetingName, recordingStartTime, attendeeReport) {
-    const { aiInstructions = '' } = await chrome.storage.sync.get('aiInstructions');
-    const date = recordingStartTime ? new Date(recordingStartTime) : new Date();
-    
-    let metadataHeader = `Meeting Title: ${meetingName}\nDate: ${date.toLocaleString()}`;
-    
-    // Add attendee information if available
-    if (attendeeReport && attendeeReport.totalUniqueAttendees > 0) {
-        metadataHeader += `\nTotal Attendees: ${attendeeReport.totalUniqueAttendees}`;
-        metadataHeader += '\n\nAttendee List:';
-        attendeeReport.attendeeList.forEach(name => {
-            metadataHeader += `\n- ${name}`;
-        });
-    }
-    
-    const transcriptText = transcript.map(entry => `[${entry.Time}] ${entry.Name}: ${entry.Text}`).join('\n\n');
-
-    let finalContent = aiInstructions ? `${aiInstructions}\n\n---\n\n` : '';
-    finalContent += `${metadataHeader}\n\n---\n\n${transcriptText}`;
-    
-    return finalContent;
-}
-
 // A simple HTML escaper for the .doc format
 function escapeHtml(str) {
     return str.replace(/&/g, "&")
@@ -205,20 +182,22 @@ async function downloadFile(filename, content, mimeType, saveAs) {
     }
 }
 
-async function generateFilename(pattern, meetingTitle, format, attendeeReport) {
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+async function generateFilename(pattern, meetingTitle, format, attendeeReport, recordingStartTime) {
+    const referenceDate = recordingStartTime ? new Date(recordingStartTime) : new Date();
+    const validDate = isNaN(referenceDate.getTime()) ? new Date() : referenceDate;
+    const dateStr = validDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = validDate.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
     const attendeeCount = attendeeReport ? attendeeReport.totalUniqueAttendees : 0;
-    
+
     const replacements = {
         '{date}': dateStr,
         '{time}': timeStr,
+        '{datetime}': `${dateStr}_${timeStr}`,
         '{title}': getSanitizedMeetingName(meetingTitle),
         '{format}': format,
         '{attendees}': attendeeCount > 0 ? `${attendeeCount}_attendees` : ''
     };
-    
+
     let filename = pattern || '{date}_{title}_{format}';
     for (const [key, value] of Object.entries(replacements)) {
         filename = filename.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), value);
@@ -236,7 +215,9 @@ async function saveTranscript(meetingTitle, transcriptArray, aliases, format, re
 
     // Get filename pattern from settings
     const { filenamePattern } = await chrome.storage.sync.get('filenamePattern');
-    const filename = await generateFilename(filenamePattern, meetingTitle, format, processedAttendeeReport);
+    const requestedFormat = typeof format === 'string' ? format.toLowerCase() : 'txt';
+    const normalizedFormat = ['md', 'txt'].includes(requestedFormat) ? requestedFormat : 'txt';
+    const filename = await generateFilename(filenamePattern, meetingTitle, normalizedFormat, processedAttendeeReport, recordingStartTime);
 
     let normalizedOptions = saveOptions;
     if (typeof saveOptions === 'boolean' || saveOptions === undefined) {
@@ -246,35 +227,15 @@ async function saveTranscript(meetingTitle, transcriptArray, aliases, format, re
     const { saveAs = true, subfolder = '' } = normalizedOptions || {};
     const sanitizedFolder = sanitizeSubfolderPath(subfolder);
 
-    let content, extension, mimeType;
+    let content;
+    let extension;
+    let mimeType;
 
-    switch (format) {
+    switch (normalizedFormat) {
         case 'md':
             content = formatAsMarkdown(processedTranscript, processedAttendeeReport);
             extension = 'md';
             mimeType = 'text/markdown';
-            break;
-        case 'json':
-            // For JSON, include both transcript and attendee data
-            const jsonData = {
-                meetingTitle: meetingName,
-                recordingStartTime,
-                transcript: processedTranscript,
-                attendees: processedAttendeeReport
-            };
-            content = JSON.stringify(jsonData, null, 2);
-            extension = 'json';
-            mimeType = 'application/json';
-            break;
-        case 'doc':
-            content = formatAsDoc(processedTranscript, processedAttendeeReport);
-            extension = 'doc';
-            mimeType = 'application/msword';
-            break;
-        case 'ai':
-            content = await formatForAi(processedTranscript, meetingName, recordingStartTime, processedAttendeeReport);
-            extension = 'txt';
-            mimeType = 'text/plain';
             break;
         case 'txt':
         default:
@@ -466,7 +427,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 try {
                     const settings = await chrome.storage.sync.get(['autoSaveOnEnd', 'defaultSaveFormat']);
                     if (settings.autoSaveOnEnd && message.transcriptArray.length > 0) {
-                        const formatToSave = settings.defaultSaveFormat || 'txt';
+                        let formatToSave = typeof settings.defaultSaveFormat === 'string'
+                            ? settings.defaultSaveFormat.toLowerCase()
+                            : 'txt';
+                        if (!['txt', 'md'].includes(formatToSave)) {
+                            formatToSave = 'txt';
+                        }
                         console.log(`Auto-saving transcript in ${formatToSave.toUpperCase()} format.`);
                         const saveOptions = await resolveSavePreferences({ forAutoSave: true });
                         await saveTranscript(
