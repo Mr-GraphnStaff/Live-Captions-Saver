@@ -59,6 +59,7 @@ The MS Teams Live Captions Saver is a powerful Chrome extension that captures, s
 
 ### Advanced Features
 - **AI-Powered Templates** - 9 built-in meeting templates (Standup, Retrospective, Planning, etc.)
+- **AI Assistant Profiles** - Load ChatGPT, Claude, or Gemini prompts tuned for finding open tasks
 - **Custom AI Instructions** - Create and save your own AI analysis templates
 - **Meeting Analytics Dashboard** - View speaker participation, word counts, and statistics
 - **Live Transcript Viewer** - Search and filter transcripts in real-time
@@ -133,6 +134,7 @@ Click "View Transcript" to open the interactive viewer with:
   - One-on-One
   - Brainstorming Session
 - **Custom Templates** - Save your own AI prompts for reuse
+- **AI Assistant Selector** - Swap between ChatGPT, Claude, Gemini, or a custom workflow prompt for task-focused analysis
 - **Quick Template Buttons** - One-click access to common analyses
 
 ## Standalone Console Script
