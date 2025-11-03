@@ -54,6 +54,8 @@ let autoEnableDebounceTimer = null;
 let autoSaveTriggered = false;
 let lastMeetingId = null;
 let timestampPreference = '12hr';
+let aiAutomationTriggered = false;
+let lastAiAutomationId = null;
 
 // --- Attendee Tracking State ---
 let attendeeUpdateInterval = null;
@@ -200,6 +202,89 @@ class RetryHandler {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const getCleanTranscript = () => transcriptArray.map(({ key, ...rest }) => rest);
+
+const AI_PROMPT_MAX_LENGTH = 1800;
+const AI_TRUNCATION_NOTICE = '\n[Transcript truncated for length]';
+
+function buildAiSummaryPrompt(transcript, meetingTitle) {
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+        return '';
+    }
+
+    const normalizedTitle = (meetingTitle || 'Microsoft Teams meeting').replace(/\s+/g, ' ').trim();
+    const titleForPrompt = normalizedTitle.length > 0 ? normalizedTitle : 'Microsoft Teams meeting';
+
+    const header = `Summarize the "${titleForPrompt}" Microsoft Teams meeting. Provide a concise recap plus bullet lists of key decisions and action items.\n\nTranscript:\n`;
+    const maxBodyLength = Math.max(0, AI_PROMPT_MAX_LENGTH - header.length);
+    if (maxBodyLength === 0) {
+        return header.slice(0, AI_PROMPT_MAX_LENGTH);
+    }
+
+    const fullBody = transcript
+        .map(entry => `[${entry.Time}] ${entry.Name}: ${entry.Text}`)
+        .join('\n');
+
+    if (fullBody.length <= maxBodyLength) {
+        const prompt = `${header}${fullBody}`;
+        return prompt.length > AI_PROMPT_MAX_LENGTH ? prompt.slice(0, AI_PROMPT_MAX_LENGTH) : prompt;
+    }
+
+    const bodyLimit = Math.max(0, maxBodyLength - AI_TRUNCATION_NOTICE.length);
+    let trimmedBody = fullBody.slice(0, bodyLimit);
+    const lastBreak = trimmedBody.lastIndexOf('\n');
+    if (lastBreak > 0) {
+        trimmedBody = trimmedBody.slice(0, lastBreak);
+    }
+
+    trimmedBody = `${trimmedBody}${AI_TRUNCATION_NOTICE}`;
+    const prompt = `${header}${trimmedBody}`;
+    return prompt.length > AI_PROMPT_MAX_LENGTH ? prompt.slice(0, AI_PROMPT_MAX_LENGTH) : prompt;
+}
+
+async function maybeTriggerAiSummaries(transcript, meetingTitle, meetingId) {
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+        return;
+    }
+
+    try {
+        const { autoAISummary, aiSummaryProviders } = await chrome.storage.sync.get(['autoAISummary', 'aiSummaryProviders']);
+        if (!autoAISummary) {
+            return;
+        }
+
+        const providers = Array.isArray(aiSummaryProviders)
+            ? aiSummaryProviders.filter(provider => typeof provider === 'string' && provider.trim().length > 0)
+            : [];
+
+        if (providers.length === 0) {
+            console.log('[Teams Caption Saver] AI automation enabled but no assistants selected.');
+            return;
+        }
+
+        if (aiAutomationTriggered && lastAiAutomationId === meetingId) {
+            console.log('[Teams Caption Saver] AI assistant automation already triggered for this meeting session, skipping.');
+            return;
+        }
+
+        const prompt = buildAiSummaryPrompt(transcript, meetingTitle);
+        if (!prompt) {
+            return;
+        }
+
+        await chrome.runtime.sendMessage({
+            message: 'open_ai_assistants',
+            prompt,
+            providers,
+            meetingTitle: meetingTitle || 'Teams Meeting'
+        });
+
+        aiAutomationTriggered = true;
+        lastAiAutomationId = meetingId;
+        console.log('[Teams Caption Saver] Opened AI assistant tabs:', providers);
+    } catch (error) {
+        ErrorHandler.log(error, 'AI summary automation', false);
+    }
+}
 
 // --- DOM Element Caching ---
 function getCachedElement(selector, expiry = 5000) {
@@ -538,7 +623,7 @@ const handleMeetingStateChange = ErrorHandler.wrap(async function() {
             wasInMeeting = nowInMeeting;
             return;
         }
-        
+
         try {
             const { autoSaveOnEnd } = await chrome.storage.sync.get('autoSaveOnEnd');
             if (autoSaveOnEnd && transcriptArray.length > 0) {
@@ -565,12 +650,14 @@ const handleMeetingStateChange = ErrorHandler.wrap(async function() {
             // Reset auto-save state on error so it can be retried
             autoSaveTriggered = false;
         }
-        
+
+        await maybeTriggerAiSummaries(getCleanTranscript(), meetingTitleOnStart, currentMeetingId);
+
         clearElementCache();
     }
-    
+
     wasInMeeting = nowInMeeting;
-    
+
     if (!nowInMeeting) {
         stopCaptureSession();
         stopAttendeeTracking();
@@ -580,6 +667,8 @@ const handleMeetingStateChange = ErrorHandler.wrap(async function() {
         console.log("Meeting transition detected: Out -> In. Resetting auto-save state.");
         autoSaveTriggered = false;
         lastMeetingId = null;
+        aiAutomationTriggered = false;
+        lastAiAutomationId = null;
         // Start attendee tracking when entering meeting
         startAttendeeTracking();
     }
@@ -655,7 +744,9 @@ async function startCaptureSession() {
     capturing = true;
     meetingTitleOnStart = document.title;
     recordingStartTime = new Date();
-    
+    aiAutomationTriggered = false;
+    lastAiAutomationId = null;
+
     console.log(`Capture started. Title: "${meetingTitleOnStart}", Time: ${recordingStartTime.toLocaleString()}`);
     
     // Start periodic backup

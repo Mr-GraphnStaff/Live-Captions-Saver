@@ -36,6 +36,75 @@ async function resolveSavePreferences({ forAutoSave = false } = {}) {
 }
 
 
+const AI_ASSISTANT_TARGETS = {
+    chatgpt: {
+        name: 'ChatGPT',
+        buildUrl(prompt) {
+            return `https://chat.openai.com/?q=${encodeURIComponent(prompt)}`;
+        }
+    },
+    claude: {
+        name: 'Claude',
+        buildUrl(prompt) {
+            return `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+        }
+    },
+    gemini: {
+        name: 'Gemini',
+        buildUrl(prompt) {
+            return `https://gemini.google.com/app?hl=en&q=${encodeURIComponent(prompt)}`;
+        }
+    }
+};
+
+const AI_ASSISTANT_PROMPT_LIMIT = 1800;
+
+function sanitizePromptForUrl(prompt) {
+    if (typeof prompt !== 'string') {
+        return '';
+    }
+
+    const trimmed = prompt.trim();
+    if (trimmed.length <= AI_ASSISTANT_PROMPT_LIMIT) {
+        return trimmed;
+    }
+
+    const notice = '\n[Prompt truncated for URL length]';
+    const baseLimit = Math.max(0, AI_ASSISTANT_PROMPT_LIMIT - notice.length);
+    const truncated = trimmed.slice(0, baseLimit);
+    return `${truncated}${notice}`;
+}
+
+async function openAiAssistantTabs(providers, prompt, meetingTitle) {
+    if (!Array.isArray(providers) || providers.length === 0) {
+        return;
+    }
+
+    const sanitizedPrompt = sanitizePromptForUrl(prompt);
+    if (!sanitizedPrompt) {
+        console.warn('[Service Worker] AI automation skipped because prompt was empty.');
+        return;
+    }
+    const uniqueProviders = [...new Set(providers)];
+
+    for (const [index, providerKey] of uniqueProviders.entries()) {
+        const target = AI_ASSISTANT_TARGETS[providerKey];
+        if (!target || typeof target.buildUrl !== 'function') {
+            console.warn(`[Service Worker] Unknown AI provider requested: ${providerKey}`);
+            continue;
+        }
+
+        const url = target.buildUrl(sanitizedPrompt);
+        try {
+            await chrome.tabs.create({ url, active: index === 0 });
+            console.log(`[Service Worker] Opened ${target.name} with meeting prompt: ${meetingTitle || 'Meeting'}`);
+        } catch (error) {
+            console.error(`[Service Worker] Failed to open ${target.name} tab:`, error);
+        }
+    }
+}
+
+
 function applyAliasesToTranscript(transcriptArray, aliases = {}) {
     if (Object.keys(aliases).length === 0) {
         return transcriptArray;
@@ -414,7 +483,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             case 'save_on_leave':
                 // Generate unique ID for this save request
                 const saveId = `${message.meetingTitle}_${message.recordingStartTime}`;
-                
+
                 // Prevent duplicate saves
                 if (autoSaveInProgress || lastAutoSaveId === saveId) {
                     console.log('Auto-save already in progress or completed for this meeting, skipping...');
@@ -453,6 +522,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 } finally {
                     autoSaveInProgress = false;
                 }
+                break;
+
+            case 'open_ai_assistants':
+                await openAiAssistantTabs(message.providers, message.prompt, message.meetingTitle);
                 break;
 
             case 'display_captions':

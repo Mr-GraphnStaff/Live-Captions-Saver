@@ -189,6 +189,24 @@
             align-items: center;
             margin-top: 5px;
         }
+        .ai-provider-options {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 6px;
+            width: 100%;
+        }
+        .ai-provider-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #1f1f1f;
+        }
+        .ai-provider-option input[type="checkbox"] {
+            margin: 0;
+        }
         .setting-label {
             font-size: 13px;
             color: #1f1f1f;
@@ -437,6 +455,17 @@
                 <label class="toggle-switch"><input type="checkbox" id="autoOpenAttendeesToggle"><span class="slider"></span></label>
             </div>
             <p class="small-info-text">Automatically open roster panel for attendee tracking (requires "Track Meeting Attendees" to be enabled).</p>
+            <div class="setting-item">
+                <label for="autoAISummaryToggle" class="setting-label">Auto-open AI Summary Tabs</label>
+                <label class="toggle-switch"><input type="checkbox" id="autoAISummaryToggle"><span class="slider"></span></label>
+            </div>
+            <p class="small-info-text">Launch ChatGPT, Claude, Gemini, and more with a prepared prompt after each meeting.</p>
+            <div class="setting-item ai-provider-options" id="aiProviderOptions" style="display: none;">
+                <label class="ai-provider-option"><input type="checkbox" data-provider="chatgpt">ChatGPT</label>
+                <label class="ai-provider-option"><input type="checkbox" data-provider="claude">Claude</label>
+                <label class="ai-provider-option"><input type="checkbox" data-provider="gemini">Gemini</label>
+            </div>
+            <p class="small-info-text" id="aiProviderHint" style="display: none;">Tabs include a trimmed transcript prompt that asks for a meeting summary and action items.</p>
             <div class="setting-item">
                 <label for="timestampFormat" class="setting-label">Timestamp Format</label>
                 <select id="timestampFormat" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">

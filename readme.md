@@ -58,6 +58,7 @@ The MS Teams Live Captions Saver is a streamlined Chrome extension that captures
 - **Speaker Identification & Aliasing** — Track who said what with customizable speaker names.
 - **Optional Attendee Tracking** — Monitor meeting participants with join/leave timestamps.
 - **Auto-Save on Meeting End** — Never lose your transcripts with automatic saving.
+- **AI Hand-off Automation** — Optionally launch ChatGPT, Claude, or Gemini with a ready-to-use summary prompt when a meeting ends.
 - **Custom Filename Patterns** — Use variables like `{date}`, `{time}`, `{datetime}`, `{title}`, `{format}`, `{attendees}`.
 - **Flexible Timestamp Formats** — Choose between 12-hour, 24-hour, or relative meeting timers.
 - **Session History & Viewer** — Reopen, export, or delete past meetings directly from the popup.
