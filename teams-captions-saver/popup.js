@@ -19,6 +19,9 @@ const UI_ELEMENTS = {
     trackCaptionsToggle: document.getElementById('trackCaptionsToggle'),
     trackAttendeesToggle: document.getElementById('trackAttendeesToggle'),
     autoOpenAttendeesToggle: document.getElementById('autoOpenAttendeesToggle'),
+    autoAISummaryToggle: document.getElementById('autoAISummaryToggle'),
+    aiProviderOptions: document.getElementById('aiProviderOptions'),
+    aiProviderHint: document.getElementById('aiProviderHint'),
     timestampFormat: document.getElementById('timestampFormat'),
     filenamePattern: document.getElementById('filenamePattern'),
     filenamePreview: document.getElementById('filenamePreview'),
@@ -167,6 +170,36 @@ function updateFilenamePreview() {
     UI_ELEMENTS.filenamePreview.textContent = `Example: ${exampleName}.${currentDefaultFormat}`;
 }
 
+function getAiProviderCheckboxes() {
+    if (!UI_ELEMENTS.aiProviderOptions) {
+        return [];
+    }
+    return Array.from(UI_ELEMENTS.aiProviderOptions.querySelectorAll('input[type="checkbox"][data-provider]'));
+}
+
+function getSelectedAiProviders() {
+    return getAiProviderCheckboxes()
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.dataset.provider);
+}
+
+function updateAiProviderOptionsState(enabled, selectedProviders = []) {
+    if (!UI_ELEMENTS.aiProviderOptions) {
+        return;
+    }
+
+    const checkboxes = getAiProviderCheckboxes();
+    UI_ELEMENTS.aiProviderOptions.style.display = enabled ? 'flex' : 'none';
+    checkboxes.forEach(checkbox => {
+        checkbox.disabled = !enabled;
+        checkbox.checked = selectedProviders.includes(checkbox.dataset.provider);
+    });
+
+    if (UI_ELEMENTS.aiProviderHint) {
+        UI_ELEMENTS.aiProviderHint.style.display = enabled ? 'block' : 'none';
+    }
+}
+
 async function renderSpeakerAliases(tab) {
     const { speakerAliasList } = UI_ELEMENTS;
     try {
@@ -205,6 +238,8 @@ async function loadSettings() {
         'trackCaptions',
         'trackAttendees',
         'autoOpenAttendees',
+        'autoAISummary',
+        'aiSummaryProviders',
         'timestampFormat',
         'filenamePattern'
     ]);
@@ -217,6 +252,13 @@ async function loadSettings() {
         UI_ELEMENTS.autoOpenAttendeesToggle.checked = !!settings.autoOpenAttendees;
         UI_ELEMENTS.autoOpenAttendeesToggle.disabled = !UI_ELEMENTS.trackAttendeesToggle.checked;
     }
+    if (UI_ELEMENTS.autoAISummaryToggle) {
+        UI_ELEMENTS.autoAISummaryToggle.checked = !!settings.autoAISummary;
+    }
+    updateAiProviderOptionsState(
+        !!settings.autoAISummary,
+        Array.isArray(settings.aiSummaryProviders) ? settings.aiSummaryProviders : []
+    );
     UI_ELEMENTS.timestampFormat.value = settings.timestampFormat || '12hr';
     UI_ELEMENTS.filenamePattern.value = settings.filenamePattern || '{date}_{title}_{format}';
     UI_ELEMENTS.manualStartInfo.style.display = settings.autoEnableCaptions ? 'none' : 'block';
@@ -302,6 +344,21 @@ function setupEventListeners() {
             chrome.storage.sync.set({ autoOpenAttendees: e.target.checked });
         });
     }
+
+    if (UI_ELEMENTS.autoAISummaryToggle) {
+        UI_ELEMENTS.autoAISummaryToggle.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            chrome.storage.sync.set({ autoAISummary: enabled });
+            updateAiProviderOptionsState(enabled, getSelectedAiProviders());
+        });
+    }
+
+    getAiProviderCheckboxes().forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const selectedProviders = getSelectedAiProviders();
+            chrome.storage.sync.set({ aiSummaryProviders: selectedProviders });
+        });
+    });
 
     if (UI_ELEMENTS.trackCaptionsToggle) {
         UI_ELEMENTS.autoEnableCaptionsToggle.disabled = !UI_ELEMENTS.trackCaptionsToggle.checked;
