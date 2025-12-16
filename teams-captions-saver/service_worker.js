@@ -49,6 +49,14 @@ const AI_ASSISTANT_TARGETS = {
             return `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
         }
     },
+    claude_console: {
+        name: 'Claude (Console)',
+        buildUrl(prompt) {
+            const url = new URL('https://console.anthropic.com/workbench');
+            url.searchParams.set('input', prompt);
+            return url.toString();
+        }
+    },
     gemini: {
         name: 'Gemini',
         buildUrl(prompt) {
