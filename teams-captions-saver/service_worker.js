@@ -239,11 +239,28 @@ function escapeHtml(str) {
 
 // --- Core Actions ---
 async function downloadFile(filename, content, mimeType, saveAs) {
-    const url = `data:${mimeType};charset=utf-8,${encodeURIComponent(content)}`;
+    let downloadUrl = '';
+    let shouldRevokeUrl = false;
+
+    try {
+        // Use a Blob URL to avoid data URL size limits that can truncate large exports.
+        const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+        downloadUrl = URL.createObjectURL(blob);
+        shouldRevokeUrl = true;
+    } catch (error) {
+        console.warn('[Service Worker] Falling back to data URL for download:', error);
+        downloadUrl = `data:${mimeType};charset=utf-8,${encodeURIComponent(content)}`;
+    }
+
     chrome.downloads.download({
-        url: url,
+        url: downloadUrl,
         filename: filename,
         saveAs: saveAs
+    }, () => {
+        if (shouldRevokeUrl) {
+            // Revoke after the download is initiated to avoid memory leaks.
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+        }
     });
     
     // Notify viewer that transcript was saved
