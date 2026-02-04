@@ -65,7 +65,7 @@ const AI_ASSISTANT_TARGETS = {
     }
 };
 
-const AI_ASSISTANT_PROMPT_LIMIT = 1800;
+const AI_ASSISTANT_PROMPT_LIMIT = 12000;
 
 function sanitizePromptForUrl(prompt) {
     if (typeof prompt !== 'string') {
