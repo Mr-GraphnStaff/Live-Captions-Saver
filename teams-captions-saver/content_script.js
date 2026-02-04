@@ -203,7 +203,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const getCleanTranscript = () => transcriptArray.map(({ key, ...rest }) => rest);
 
-const AI_PROMPT_MAX_LENGTH = 1800;
+const AI_PROMPT_MAX_LENGTH = 12000;
 const AI_TRUNCATION_NOTICE = '\n[Transcript truncated for length]';
 
 function buildAiSummaryPrompt(transcript, meetingTitle) {
