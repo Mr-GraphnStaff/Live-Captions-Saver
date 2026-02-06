@@ -51,9 +51,12 @@ const AI_ASSISTANT_TARGETS = {
     },
     claude_console: {
         name: 'Claude (Console)',
-        buildUrl(prompt) {
+        buildUrl(prompt, { orgId = '' } = {}) {
             const url = new URL('https://console.anthropic.com/workbench');
             url.searchParams.set('input', prompt);
+            if (orgId) {
+                url.searchParams.set('organization', orgId);
+            }
             return url.toString();
         }
     },
@@ -88,6 +91,9 @@ async function openAiAssistantTabs(providers, prompt, meetingTitle) {
         return;
     }
 
+    const { aiAssistantOrgId } = await chrome.storage.sync.get(['aiAssistantOrgId']);
+    const orgId = typeof aiAssistantOrgId === 'string' ? aiAssistantOrgId.trim() : '';
+
     const sanitizedPrompt = sanitizePromptForUrl(prompt);
     if (!sanitizedPrompt) {
         console.warn('[Service Worker] AI automation skipped because prompt was empty.');
@@ -102,7 +108,7 @@ async function openAiAssistantTabs(providers, prompt, meetingTitle) {
             continue;
         }
 
-        const url = target.buildUrl(sanitizedPrompt);
+        const url = target.buildUrl(sanitizedPrompt, { orgId });
         try {
             await chrome.tabs.create({ url, active: index === 0 });
             console.log(`[Service Worker] Opened ${target.name} with meeting prompt: ${meetingTitle || 'Meeting'}`);

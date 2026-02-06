@@ -466,7 +466,12 @@
                 <label class="ai-provider-option"><input type="checkbox" data-provider="claude_console">Claude (Console)</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="gemini">Gemini</label>
             </div>
+            <div class="setting-item" id="aiOrgIdRow" style="display: none;">
+                <label for="aiOrgId" class="setting-label">Anthropic Org ID</label>
+                <input type="text" id="aiOrgId" placeholder="org_1234567890" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+            </div>
             <p class="small-info-text" id="aiProviderHint" style="display: none;">Tabs include a trimmed transcript prompt that asks for a meeting summary and action items.</p>
+            <p class="small-info-text" id="aiOrgIdHint" style="display: none;">Optional: use your Anthropic organization ID to open Claude Console in the correct org.</p>
             <div class="setting-item">
                 <label for="timestampFormat" class="setting-label">Timestamp Format</label>
                 <select id="timestampFormat" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
