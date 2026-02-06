@@ -22,6 +22,9 @@ const UI_ELEMENTS = {
     autoAISummaryToggle: document.getElementById('autoAISummaryToggle'),
     aiProviderOptions: document.getElementById('aiProviderOptions'),
     aiProviderHint: document.getElementById('aiProviderHint'),
+    aiOrgIdRow: document.getElementById('aiOrgIdRow'),
+    aiOrgIdInput: document.getElementById('aiOrgId'),
+    aiOrgIdHint: document.getElementById('aiOrgIdHint'),
     timestampFormat: document.getElementById('timestampFormat'),
     filenamePattern: document.getElementById('filenamePattern'),
     filenamePreview: document.getElementById('filenamePreview'),
@@ -198,6 +201,18 @@ function updateAiProviderOptionsState(enabled, selectedProviders = []) {
     if (UI_ELEMENTS.aiProviderHint) {
         UI_ELEMENTS.aiProviderHint.style.display = enabled ? 'block' : 'none';
     }
+
+    if (UI_ELEMENTS.aiOrgIdRow) {
+        UI_ELEMENTS.aiOrgIdRow.style.display = enabled ? 'flex' : 'none';
+    }
+
+    if (UI_ELEMENTS.aiOrgIdInput) {
+        UI_ELEMENTS.aiOrgIdInput.disabled = !enabled;
+    }
+
+    if (UI_ELEMENTS.aiOrgIdHint) {
+        UI_ELEMENTS.aiOrgIdHint.style.display = enabled ? 'block' : 'none';
+    }
 }
 
 async function renderSpeakerAliases(tab) {
@@ -240,6 +255,7 @@ async function loadSettings() {
         'autoOpenAttendees',
         'autoAISummary',
         'aiSummaryProviders',
+        'aiAssistantOrgId',
         'timestampFormat',
         'filenamePattern'
     ]);
@@ -259,6 +275,10 @@ async function loadSettings() {
         !!settings.autoAISummary,
         Array.isArray(settings.aiSummaryProviders) ? settings.aiSummaryProviders : []
     );
+    if (UI_ELEMENTS.aiOrgIdInput) {
+        UI_ELEMENTS.aiOrgIdInput.value = settings.aiAssistantOrgId || '';
+        UI_ELEMENTS.aiOrgIdInput.disabled = !settings.autoAISummary;
+    }
     UI_ELEMENTS.timestampFormat.value = settings.timestampFormat || '12hr';
     UI_ELEMENTS.filenamePattern.value = settings.filenamePattern || '{date}_{title}_{format}';
     UI_ELEMENTS.manualStartInfo.style.display = settings.autoEnableCaptions ? 'none' : 'block';
@@ -350,6 +370,9 @@ function setupEventListeners() {
             const enabled = e.target.checked;
             chrome.storage.sync.set({ autoAISummary: enabled });
             updateAiProviderOptionsState(enabled, getSelectedAiProviders());
+            if (UI_ELEMENTS.aiOrgIdInput) {
+                UI_ELEMENTS.aiOrgIdInput.disabled = !enabled;
+            }
         });
     }
 
@@ -359,6 +382,12 @@ function setupEventListeners() {
             chrome.storage.sync.set({ aiSummaryProviders: selectedProviders });
         });
     });
+
+    if (UI_ELEMENTS.aiOrgIdInput) {
+        UI_ELEMENTS.aiOrgIdInput.addEventListener('input', (e) => {
+            chrome.storage.sync.set({ aiAssistantOrgId: e.target.value.trim() });
+        });
+    }
 
     if (UI_ELEMENTS.trackCaptionsToggle) {
         UI_ELEMENTS.autoEnableCaptionsToggle.disabled = !UI_ELEMENTS.trackCaptionsToggle.checked;
