@@ -137,17 +137,50 @@ function broadcastAttendeeUpdate(data) {
 
 // --- Error Handling & Logging ---
 class ErrorHandler {
+    static getErrorMessage(error) {
+        if (typeof error === 'string') {
+            return error;
+        }
+
+        if (error && typeof error.message === 'string' && error.message.trim().length > 0) {
+            return error.message;
+        }
+
+        if (error && typeof error === 'object') {
+            try {
+                return JSON.stringify(error);
+            } catch (_stringifyError) {
+                return String(error);
+            }
+        }
+
+        return String(error);
+    }
+
+    static isNoReceiverError(message) {
+        return typeof message === 'string' && (
+            message.includes('Receiving end does not exist')
+            || message.includes('Could not establish connection')
+            || message.includes('The message port closed before a response was received')
+        );
+    }
+
     static log(error, context = '', silent = false) {
         const timestamp = new Date().toISOString();
+        const message = ErrorHandler.getErrorMessage(error);
         const errorInfo = {
             timestamp,
             context,
-            message: error.message || String(error),
+            message,
             stack: error.stack,
             url: window.location.href
         };
-        
-        console.error(`[Teams Caption Saver] ${context}:`, errorInfo);
+
+        if (ErrorHandler.isNoReceiverError(message)) {
+            console.warn(`[Teams Caption Saver] ${context}: ${message}`);
+        } else {
+            console.error(`[Teams Caption Saver] ${context}: ${message}`, errorInfo);
+        }
         
         if (!silent) {
             // Could send to analytics or show user notification
