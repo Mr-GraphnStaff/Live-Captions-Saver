@@ -1,8 +1,8 @@
 {
-  "name": "teams-live-captions-saver",
+  "name": "better-captionkeep",
   "version": "0.1.0",
   "private": true,
-  "description": "Developer tooling for the MS Teams Live Captions Saver fork.",
+  "description": "Developer tooling for Better CaptionKeep for Microsoft Edge.",
   "scripts": {
     "lint": "node scripts/check-extension.mjs",
     "build": "web-ext build --source-dir teams-captions-saver --artifacts-dir dist --overwrite-dest",

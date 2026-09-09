@@ -65,8 +65,8 @@ async function validateManifest(manifest) {
   }
 
   const defaultIcon = manifest.action?.default_icon;
-  if (defaultIcon && !(await fileExists(path.join(sourceDir, defaultIcon)))) {
-    errors.push(`Action icon "${defaultIcon}" is missing.`);
+  for (const icon of typeof defaultIcon === 'string' ? [defaultIcon] : Object.values(defaultIcon ?? {})) {
+    if (!(await fileExists(path.join(sourceDir, icon)))) errors.push(`Action icon ${icon} is missing.`);
   }
 
   const icons = manifest.icons ?? {};

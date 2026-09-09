@@ -1,35 +1,36 @@
 {
   "manifest_version": 3,
-  "name": "MS Teams Live Captions Saver",
-  "version": "4.5",
-  "description": "Capture and save live captions from Microsoft Teams meetings on the web. Features include various save formats, AI summaries, and automation.",
-  "homepage_url": "https://spdenis.com",
+  "name": "Better CaptionKeep",
+  "version": "4.6",
+  "description": "Save live captions from Microsoft Teams in Microsoft Edge, with TXT and Markdown exports and flexible save locations.",
+  "homepage_url": "https://github.com/Mr-GraphnStaff/better-captionkeep",
   "icons": {
-    "16": "icon.png",
-    "48": "icon.png",
-    "128": "icon.png"
+    "16": "icons/scribble-16.png",
+    "32": "icons/scribble-32.png",
+    "48": "icons/scribble-48.png",
+    "128": "icons/scribble-128.png"
   },
-
   "permissions": [
     "downloads",
     "activeTab",
     "storage"
   ],
-
   "host_permissions": [
     "https://teams.microsoft.com/*"
   ],
-
   "action": {
-    "default_icon": "icon.png",
+    "default_icon": {
+      "16": "icons/scribble-16.png",
+      "32": "icons/scribble-32.png",
+      "48": "icons/scribble-48.png",
+      "128": "icons/scribble-128.png"
+    },
     "default_popup": "popup.html",
-    "default_title": "Teams Captions Saver"
+    "default_title": "Better CaptionKeep — by Señor Farris"
   },
-
   "background": {
     "service_worker": "service_worker.js"
   },
-
   "content_scripts": [
     {
       "matches": [
@@ -40,7 +41,6 @@
       ]
     }
   ],
-  
   "web_accessible_resources": [
     {
       "resources": [
@@ -52,5 +52,6 @@
         "<all_urls>"
       ]
     }
-  ]
+  ],
+  "author": "Señor Farris"
 }
