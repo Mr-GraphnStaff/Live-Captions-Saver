@@ -18,6 +18,7 @@ const SELECTORS = {
         "button[data-tid='hangup-main-btn']",
         "button[data-tid='hangup-leave-button']",
         "button[data-tid='hangup-end-meeting-button']",
+        "button[data-tid*='hangup']",
         "div#hangup-button button",
         "#hangup-button"
     ].join(','),
@@ -339,7 +340,14 @@ function clearElementCache() {
     cachedElements.clear();
 }
 
-const isUserInMeeting = () => getCachedElement(SELECTORS.LEAVE_BUTTONS) !== null;
+// Teams replaces the full meeting stage with a compact dock while multitasking.
+// The compact stage can use a different hang-up button, and pop-out captions do
+// not contain meeting controls at all. Either surface is evidence that the
+// meeting/caption session is still alive.
+const isUserInMeeting = () => (
+    getCachedElement(SELECTORS.LEAVE_BUTTONS) !== null ||
+    getCachedElement(SELECTORS.CAPTIONS_RENDERER) !== null
+);
 
 // --- Core Logic ---
 const processCaptionUpdates = ErrorHandler.wrap(function() {
@@ -630,6 +638,7 @@ function setupCaptionsObserver() {
 }
 
 const handleMeetingStateChange = ErrorHandler.wrap(async function() {
+    const previouslyInMeeting = wasInMeeting;
     const nowInMeeting = isUserInMeeting();
     
     if (wasInMeeting && !nowInMeeting) {
@@ -689,13 +698,12 @@ const handleMeetingStateChange = ErrorHandler.wrap(async function() {
         clearElementCache();
     }
 
-    wasInMeeting = nowInMeeting;
-
     if (!nowInMeeting) {
+        wasInMeeting = false;
         stopCaptureSession();
         stopAttendeeTracking();
         return;
-    } else if (!wasInMeeting && nowInMeeting) {
+    } else if (!previouslyInMeeting && nowInMeeting) {
         // Reset auto-save state when joining a new meeting
         console.log("Meeting transition detected: Out -> In. Resetting auto-save state.");
         autoSaveTriggered = false;
@@ -705,6 +713,8 @@ const handleMeetingStateChange = ErrorHandler.wrap(async function() {
         // Start attendee tracking when entering meeting
         startAttendeeTracking();
     }
+
+    wasInMeeting = true;
     
     handleCaptionsStateChange();
 }, 'Meeting state change handler');
@@ -722,7 +732,15 @@ const handleCaptionsStateChange = ErrorHandler.wrap(async function() {
     if (captionsContainer) {
         startCaptureSession();
     } else {
-        stopCaptureSession();
+        // Teams temporarily unmounts the caption renderer when its PWA meeting
+        // window changes to the compact dock. Keep the same capture session and
+        // transcript alive; ensureObserverIsActive() will attach to the new
+        // renderer as soon as Teams mounts it again.
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+        observedElement = null;
         
         const { autoEnableCaptions } = await chrome.storage.sync.get('autoEnableCaptions');
         if (autoEnableCaptions) {
