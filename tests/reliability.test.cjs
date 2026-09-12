@@ -230,7 +230,7 @@ test('Privacy Scrubber is visible, defaults on, and guards unmasked copying',()=
     assert(handoffScript.includes('!scrubberToggle.checked && !unmaskedCopyArmed'));
 });
 test('extension pages use only packaged scripts and settings use progressive disclosure',()=>{
-    for(const page of ['popup.html','viewer.html','export.html','handoff.html']) {
+    for(const page of ['popup.html','viewer.html','export.html','handoff.html','platform-coming-soon.html']) {
         const html=read(page);
         for(const match of html.matchAll(/<script[^>]+src="([^"]+)"/g)) {
             assert(!/^(?:https?:)?\/\//i.test(match[1]),`${page} must not load remote code`);
@@ -242,6 +242,24 @@ test('extension pages use only packaged scripts and settings use progressive dis
     for(const section of ['Appearance','Speaker aliases','Export and auto-save','AI handoff and privacy','Naming and timestamps','Configuration portability']) {
         assert(popup.includes(`<summary>${section}</summary>`));
     }
+});
+test('popup uses a compact three-platform launcher without an inline Teams warning link',()=>{
+    const popup=read('popup.html');const script=read('popup.js');
+    assert(popup.includes('class="platform-launchers"'));
+    assert.equal((popup.match(/class="platform-launcher"/g)||[]).length,3);
+    assert(popup.includes('aria-label="Open Microsoft Teams"'));
+    assert(popup.includes('platform-coming-soon.html?platform=zoom'));
+    assert(popup.includes('platform-coming-soon.html?platform=meet'));
+    assert(script.includes("textContent = 'Teams is not open yet.'"));
+    assert(!script.includes('open a Teams tab</a>'));
+});
+test('unsupported platform launchers open a bounded 5.0 coming-soon page',()=>{
+    const html=read('platform-coming-soon.html');const script=read('platform-coming-soon.js');
+    assert(html.includes('Better CaptionKeep 5.0'));
+    assert(script.includes("zoom: 'Zoom'"));
+    assert(script.includes("meet: 'Google Meet'"));
+    assert(script.includes("UPCOMING_PLATFORMS[key] || 'More meeting platforms'"));
+    assert(!html.includes('http://') && !html.includes('https://'));
 });
 async function contentHarness() {
     const h=harness();h.run(read('content_script.js'));for(let i=0;i<10;i++)await Promise.resolve();return h;

@@ -822,8 +822,8 @@ async function initializePopup() {
 
     const tab = await getActiveTeamsTab();
     if (!tab) {
-        UI_ELEMENTS.statusMessage.innerHTML = 'Please <a href="https://teams.microsoft.com" target="_blank">open a Teams tab</a> to use this extension.';
-        UI_ELEMENTS.statusMessage.style.color = 'var(--ck-danger)';
+        UI_ELEMENTS.statusMessage.textContent = 'Teams is not open yet.';
+        UI_ELEMENTS.statusMessage.style.color = 'var(--ck-text-muted)';
         return;
     }
 

@@ -13,6 +13,7 @@
 
 - [ ] Edge unpacked: install, popup, all themes, config export/import, direct folder picker, manual Downloads subfolder, and Open Downloads fallback
 - [ ] Chrome unpacked: install, popup, all themes, config export/import, direct folder picker, manual Downloads subfolder, and Open Downloads fallback
+- [ ] Popup platform row: Teams opens the official web app; Zoom and Google Meet open only the local 5.0 coming-soon page
 - [ ] `teams.cloud.microsoft`: live capture, minimize/restore, reload recovery warning, copy, cleaned copy, TXT/MD export
 - [ ] `teams.microsoft.com`: injection and equivalent capture/export smoke test when the tenant still serves this host
 - [ ] Viewer: search, speaker filter, Scrubby output toggle, history load/delete

@@ -50,14 +50,62 @@
             min-height: 20px;
         }
 
-        #status-message a {
-            color: #087f8c;
-            text-decoration: underline;
-            transition: color 0.3s ease;
+        .platform-launchers {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            width: 100%;
         }
 
-        #status-message a:hover {
-            color: #065e68;
+        .platform-launcher {
+            min-width: 0;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px;
+            box-sizing: border-box;
+            border: 1px solid var(--ck-border);
+            border-radius: 8px;
+            background: var(--ck-surface);
+            color: var(--ck-text) !important;
+            font-size: 11px;
+            font-weight: 650;
+            text-decoration: none;
+            box-shadow: 0 1px 3px rgba(20, 43, 59, 0.08);
+            transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
+        }
+
+        .platform-launcher:hover {
+            border-color: var(--ck-primary);
+            background: var(--ck-surface-soft);
+            transform: translateY(-1px);
+        }
+
+        .platform-mark {
+            width: 22px;
+            height: 22px;
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 22px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 750;
+            line-height: 1;
+        }
+
+        .platform-mark.teams { background: #6264a7; }
+        .platform-mark.zoom { background: #2d8cff; }
+        .platform-mark.meet {
+            background: linear-gradient(135deg, #00832d 0 50%, #1a73e8 50% 100%);
+        }
+
+        .platform-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         kbd {
@@ -386,9 +434,21 @@
     <header class="brand"><img src="icons/scribble-128.png" width="56" height="56" alt="Scribble, the listening transcript mascot"><div><h2>Better CaptionKeep</h2><p class="signature">by Señor Farris</p></div></header>
     <p class="subtitle">Keep the words. Stay in the conversation.</p>
 
-    <p id="manual-start-info" class="info-text">Turn on live captions in your meeting to start capturing.</p>
+    <nav class="platform-launchers" aria-label="Open a meeting app">
+        <a class="platform-launcher" href="https://teams.microsoft.com" target="_blank" rel="noopener" aria-label="Open Microsoft Teams">
+            <span class="platform-mark teams" aria-hidden="true">T</span><span class="platform-name">Teams</span>
+        </a>
+        <a class="platform-launcher" href="platform-coming-soon.html?platform=zoom" target="_blank" aria-label="Preview upcoming Zoom support">
+            <span class="platform-mark zoom" aria-hidden="true">Z</span><span class="platform-name">Zoom</span>
+        </a>
+        <a class="platform-launcher" href="platform-coming-soon.html?platform=meet" target="_blank" aria-label="Preview upcoming Google Meet support">
+            <span class="platform-mark meet" aria-hidden="true">M</span><span class="platform-name">Meet</span>
+        </a>
+    </nav>
 
-    <p id="status-message">Checking status...</p>
+    <p id="manual-start-info" class="info-text">In Teams, turn on live captions to start capturing.</p>
+
+    <p id="status-message" role="status" aria-live="polite">Checking status...</p>
 
     <div class="button-container">
         <div class="split-button" id="copy-container">

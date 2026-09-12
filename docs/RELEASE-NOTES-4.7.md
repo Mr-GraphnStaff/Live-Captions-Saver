@@ -12,5 +12,6 @@ Better CaptionKeep 4.7 is the enterprise-ready release: stronger Teams PWA recov
 - Adds Privacy Scrubber, on by default, with cleaned copy/export, labeled PHI-like identifiers, PCI-like card detection, optional profanity masking, and custom terms.
 - Adds read-only managed policy plus transcript-free user configuration export/import.
 - Restores the 4.6 save-behavior controls, preserves manually configured Downloads subfolders, and provides an Open Downloads fallback when direct folder selection is unavailable or canceled.
+- Replaces the oversized Teams warning link with a compact three-platform launcher row. Teams opens today; Zoom and Google Meet open local, clearly labeled 5.0 preview pages.
 
 Scrubby reduces accidental disclosure risk but does not guarantee regulatory compliance. Zoom and other meeting platforms are intentionally deferred from this production package.

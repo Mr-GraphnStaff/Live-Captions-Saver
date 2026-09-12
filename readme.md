@@ -25,6 +25,7 @@ Screenshots below show the current packaged HTML and styling rendered in Microso
 - Choose CaptionKeep, Light, Midnight, or Follow system appearance across every extension page.
 - Work in a branded transcript viewer with a sticky search, speaker-filter, copy, save, and history toolbar.
 - Keep the popup calm with expandable settings sections; everyday capture controls remain visible first.
+- Launch Teams from a compact meeting-app row; Zoom and Google Meet use clearly labeled 5.0 preview pages until their capture adapters are ready.
 - Export/import user preferences or let administrators enforce selected controls through managed browser policy.
 
 AI handoffs prepare a local, editable prompt for review before you choose whether to copy or share it. Privacy Scrubber is visible and on by default: it masks supported sensitive patterns locally, leaves the saved original unchanged, and requires a second confirmation before an unmasked prompt can be copied. Pattern detection reduces accidental disclosure risk but does not guarantee HIPAA, PCI DSS, or other regulatory compliance. For managed ChatGPT or Claude accounts, first open the approved enterprise workspace and copy its URL into **Settings → Enterprise destinations**. Better CaptionKeep accepts only official HTTPS provider domains, never places transcript text in a provider URL, and asks you to confirm the active workspace before pasting. Preferences, including enterprise destinations and the selected theme, may use browser sync; see the [privacy policy](PRIVACY.md) for the full data-handling details.
