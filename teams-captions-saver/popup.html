@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <title>Better CaptionKeep</title>
     <meta charset="UTF-8">
@@ -352,7 +352,14 @@
         .brand img { flex-shrink: 0; }
         .brand h2 { font-size: 19px; line-height: 1.2; }
         .signature { margin: 4px 0 0; font-size: 12px; color: #087f8c; }
+        .enterprise-destinations { display: grid; gap: 7px; width: 100%; }
+        .workspace-url-label { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--ck-text); }
+        .enterprise-destinations input { width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid var(--ck-border); border-radius: 5px; font-size: 12px; }
+        .enterprise-destinations input:invalid { border-color: var(--ck-danger) !important; }
     </style>
+    <link rel="stylesheet" href="theme.css">
+    <script src="theme.js" defer></script>
+    <script src="aiDestinations.js" defer></script>
     <script src="popup.js" defer></script>
 </head>
 
@@ -399,6 +406,20 @@
         <h3 class="settings-header">Settings</h3>
 
         <div class="settings-group">
+            <p class="settings-subheader">Appearance</p>
+            <div class="setting-item">
+                <label for="themeSelect" class="setting-label">Theme</label>
+                <select id="themeSelect">
+                    <option value="captionkeep">CaptionKeep</option>
+                    <option value="light">Light</option>
+                    <option value="midnight">Midnight</option>
+                    <option value="system">Follow system</option>
+                </select>
+            </div>
+            <p class="small-info-text">Applies to the popup, transcript viewer, exports, and AI handoff.</p>
+        </div>
+
+        <div class="settings-group">
             <p class="settings-subheader">Session Settings</p>
             <div id="speaker-alias-container">
                  <label class="setting-label" style="margin-bottom: 10px;">Speaker Aliases</label>
@@ -415,24 +436,13 @@
                     <option value="md">Markdown</option>
                 </select>
             </div>
-            <div class="setting-item">
-                <label for="saveAsType" class="setting-label">Save Behavior</label>
-                <select id="saveAsType" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
-                    <option value="prompt">Ask every time (Save As dialog)</option>
-                    <option value="default">Auto-save to browser folder</option>
-                    <option value="custom">Auto-save to custom folder</option>
-                </select>
-            </div>
-            <div class="setting-item" id="saveLocationRow" style="display: none;">
-                <label for="saveLocation" class="setting-label">Save Location</label>
-                <input type="text" id="saveLocation" placeholder="Transcripts/Meetings" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
-            </div>
-            <p class="small-info-text" id="saveLocationHint" style="display: none;">Files save inside your Downloads folder. Use folders like <kbd>Transcripts/Teams</kbd>.</p>
+            <p>Every export opens a save page with Save As and your selected folder.</p>
+            <button id="exportSettings" type="button">Export folder and pending saves</button>
             <div class="setting-item">
                 <label for="autoSaveOnEndToggle" class="setting-label">Auto-Save on Meeting End</label>
                 <label class="toggle-switch"><input type="checkbox" id="autoSaveOnEndToggle"><span class="slider"></span></label>
             </div>
-             <p class="small-info-text">Automatically saves in your default format when you leave a meeting.</p>
+             <p class="small-info-text">Prepares an export when the meeting ends. Writes to your selected folder only while permission is granted; otherwise keeps the export pending.</p>
         </div>
 
         <div class="settings-group">
@@ -460,22 +470,27 @@
             </div>
             <p class="small-info-text">Automatically open roster panel for attendee tracking (requires "Track Meeting Attendees" to be enabled).</p>
             <div class="setting-item">
-                <label for="autoAISummaryToggle" class="setting-label">Auto-open AI Summary Tabs</label>
+                <label for="autoAISummaryToggle" class="setting-label">Prepare AI handoff</label>
                 <label class="toggle-switch"><input type="checkbox" id="autoAISummaryToggle"><span class="slider"></span></label>
             </div>
-            <p class="small-info-text">Launch ChatGPT, Claude, Gemini, and more with a prepared prompt after each meeting.</p>
+            <p class="small-info-text">Prepare a local prompt for review and copying after each meeting. No transcript is placed in provider URLs.</p>
             <div class="setting-item ai-provider-options" id="aiProviderOptions" style="display: none;">
                 <label class="ai-provider-option"><input type="checkbox" data-provider="chatgpt">ChatGPT</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="claude">Claude</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="claude_console">Claude (Console)</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="gemini">Gemini</label>
             </div>
-            <div class="setting-item" id="aiOrgIdRow" style="display: none;">
-                <label for="aiOrgId" class="setting-label">Anthropic Org ID</label>
-                <input type="text" id="aiOrgId" placeholder="org_1234567890" style="flex: 1; margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+            <div class="enterprise-destinations" id="enterpriseDestinations" style="display: none;">
+                <p class="settings-subheader">Enterprise destinations</p>
+                <label class="workspace-url-label" for="chatgptWorkspaceUrl">ChatGPT workspace URL</label>
+                <input type="url" id="chatgptWorkspaceUrl" placeholder="https://chatgpt.com/..." autocomplete="off">
+                <label class="workspace-url-label" for="claudeWorkspaceUrl">Claude workspace URL</label>
+                <input type="url" id="claudeWorkspaceUrl" placeholder="https://claude.ai/..." autocomplete="off">
+                <label class="workspace-url-label" for="claudeConsoleUrl">Claude Console URL</label>
+                <input type="url" id="claudeConsoleUrl" placeholder="https://console.anthropic.com/..." autocomplete="off">
             </div>
-            <p class="small-info-text" id="aiProviderHint" style="display: none;">Tabs include a trimmed transcript prompt that asks for a meeting summary and action items.</p>
-            <p class="small-info-text" id="aiOrgIdHint" style="display: none;">Optional: use your Anthropic organization ID to open Claude Console in the correct org.</p>
+            <p class="small-info-text" id="aiProviderHint" style="display: none;">Review the prompt locally before copying or sharing it. Long transcripts are marked when truncated.</p>
+            <p class="small-info-text" id="enterpriseDestinationHint" style="display: none;">Optional: switch into the approved enterprise workspace first, copy its URL, and paste it above. Only official ChatGPT, Claude, and Anthropic Console domains are accepted.</p>
             <div class="setting-item">
                 <label for="timestampFormat" class="setting-label">Timestamp Format</label>
                 <select id="timestampFormat" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">

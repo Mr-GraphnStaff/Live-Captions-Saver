@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State ---
     let allCaptions = [];
+    let historical = false;
+    let sourceTabId = null;
+    let sourceSessionId = null;
     let searchDebounceTimer = null;
     let meetingStartTime = null;
     let meetingEndTime = null;
@@ -29,7 +32,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function escapeHtml(str) {
         const p = document.createElement("p");
         p.textContent = str;
-        return p.innerHTML;
+        return p.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function renderViewerState(title, message, options = {}) {
+        const { mark = '•••', showSteps = false } = options;
+        const steps = showSteps
+            ? '<div class="viewer-state-steps"><span>1 · Open the popup</span><span>2 · Start captions</span><span>3 · View transcript</span></div>'
+            : '';
+        captionsContainer.innerHTML = `
+            <div class="viewer-state" role="status">
+                <div class="viewer-state-content">
+                    <div class="viewer-state-mark" aria-hidden="true">${escapeHtml(mark)}</div>
+                    <h2>${escapeHtml(title)}</h2>
+                    <p>${escapeHtml(message)}</p>
+                    ${steps}
+                </div>
+            </div>`;
     }
     
     // --- Helper Functions ---
@@ -40,9 +59,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!textElement) return;
         
         const text = textElement.textContent;
-        const regex = new RegExp(`(${searchTerm})`, 'gi');
-        const highlightedText = text.replace(regex, '<mark>$1</mark>');
-        textElement.innerHTML = highlightedText;
+        const lower = text.toLowerCase();
+        const needle = searchTerm.toLowerCase();
+        textElement.replaceChildren();
+        let cursor = 0;
+        let match;
+        while ((match = lower.indexOf(needle, cursor)) !== -1) {
+            textElement.append(document.createTextNode(text.slice(cursor, match)));
+            const mark = document.createElement('mark');
+            mark.textContent = text.slice(match, match + needle.length);
+            textElement.append(mark);
+            cursor = match + needle.length;
+        }
+        textElement.append(document.createTextNode(text.slice(cursor)));
+
     }
     
     // --- Live Update Functions ---
@@ -81,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             newCaptionElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
         
+        applyFilters();
         // Update analytics
         updateAnalyticsIncremental(caption);
         
@@ -105,6 +136,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = allCaptions.findIndex(c => c.key === caption.key);
         if (index !== -1) {
             allCaptions[index] = caption;
+            if (captionElement) {
+                captionElement.querySelector(".time").textContent = caption.Time;
+                captionElement.querySelector(".name").textContent = caption.Name;
+                captionElement.dataset.speaker = caption.Name;
+            }
+            applyFilters();
         }
     }
     
@@ -135,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateAnalyticsIncremental(caption) {
         // Check if this is a new speaker we haven't seen before
-        const speakerButton = speakerFiltersContainer.querySelector(`button[data-speaker="${caption.Name}"]`);
+        const speakerButton = [...speakerFiltersContainer.querySelectorAll("button")].find(button => button.dataset.speaker === caption.Name);
         if (!speakerButton) {
             // New speaker detected, add their button
             const btn = document.createElement('button');
@@ -205,7 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCaptions(transcriptArray) {
         allCaptions = transcriptArray;
         const htmlContent = transcriptArray.map(createCaptionHTML).join('');
-        captionsContainer.innerHTML = htmlContent || '<p class="status-message">No captions to display.</p>';
+        if (htmlContent) {
+            captionsContainer.innerHTML = htmlContent;
+        } else {
+            renderViewerState('No captions yet', 'New caption lines will appear here when someone speaks.', { mark: '…' });
+        }
         updateExportButtonStates();
     }
 
@@ -372,37 +413,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Create download
-        const content = formatTranscriptForExport(visibleCaptions);
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0];
-        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-        const filename = `filtered-transcript-${dateStr}-${timeStr}.txt`;
-        
         try {
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showButtonSuccess(saveAllBtn, 'Saved!', 'Save');
-            showNotification(`Saved ${visibleCaptions.length} caption(s) to ${filename}`, 'success');
-            
-            // Update meeting ended message to show it's been saved
-            if (document.getElementById('meeting-ended-message')) {
-                await addMeetingEndedMessage(true);
-            }
-        } catch (err) {
-            console.error('Failed to save transcript: ', err);
-            showNotification('Failed to save file', 'error');
-        }
+            const {defaultSaveFormat = 'txt'} = await chrome.storage.sync.get('defaultSaveFormat');
+            const result = await chrome.runtime.sendMessage({message:'download_captions', transcriptArray:visibleCaptions,
+                format:defaultSaveFormat, meetingTitle:document.querySelector('h1').textContent});
+            if (!result?.ok) throw new Error(result?.error || 'Could not prepare export');
+            showNotification('Export ready. Choose a destination on the save page.', 'success');
+        } catch (error) { showNotification(error.message,'error'); }
     }
-    
+
+
     function showButtonSuccess(button, successText, originalText) {
         const originalHtml = button.innerHTML;
         button.classList.add('success');
@@ -521,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessions = await sessionManager.getSessionIndex();
             
             if (!sessions || sessions.length === 0) {
-                sessionListModal.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No saved sessions available</div>';
+                sessionListModal.innerHTML = '<div style="text-align: center; color: var(--ck-text-muted); padding: 20px;">No saved sessions available</div>';
                 return;
             }
             
@@ -529,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const session of sessions) {
                 const timeAgo = getTimeAgo(new Date(session.timestamp));
                 html += `
-                    <div class="session-item" onclick="loadSessionFromHistory('${session.id}')">
+                    <div class="session-item" data-session-id="${escapeHtml(session.id)}" role="button" tabindex="0">
                         <div class="session-title">${escapeHtml(session.title)}</div>
                         <div class="session-meta">
                             ${session.date} • ${session.duration} • ${session.captionCount} captions • ${timeAgo}
@@ -539,10 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             sessionListModal.innerHTML = html;
+            sessionListModal.querySelectorAll('[data-session-id]').forEach(row => {
+                row.addEventListener('click', () => window.loadSessionFromHistory(row.dataset.sessionId));
+                row.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); row.click(); }
+                });
+            });
             
         } catch (error) {
             console.error('[Session History] Failed to load:', error);
-            sessionListModal.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading sessions</div>';
+            sessionListModal.innerHTML = '<div style="text-align: center; color: var(--ck-danger); padding: 20px;">Error loading sessions</div>';
         }
     }
     
@@ -555,11 +581,13 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionModal.style.display = 'none';
             
             // Load the transcript
+            historical = true;
+            sourceTabId = null;
             allCaptions = sessionData.transcript;
             isLiveStreaming = false; // Historical data, not live
             
             // Update title
-            document.querySelector('h1').innerHTML = `${escapeHtml(sessionData.metadata.title)} <span style="font-size: 0.5em; color: #666;">(Historical)</span>`;
+            document.querySelector('h1').innerHTML = `${escapeHtml(sessionData.metadata.title)} <span style="font-size: 0.5em; color: var(--ck-text-muted);">(Historical)</span>`;
             
             // Calculate and display analytics
             const analytics = calculateAnalytics(allCaptions);
@@ -606,16 +634,29 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initialize() {
         try {
             // Check if we have captions passed via storage (from popup)
-            const result = await chrome.storage.local.get(['captionsToView', 'viewerData']);
-            let transcript = result.captionsToView;
-            let viewerData = result.viewerData;
-            
+            const params = new URL(location.href).searchParams;
+            const payload = params.get('payload');
+            const session = params.get('session');
+            const result = {};
+            let viewerData;
+            if (session) {
+                const saved = await new SessionManager().loadSession(session);
+                viewerData = {transcriptArray:saved.transcript, meetingTitle:saved.metadata.title, isHistorical:true};
+            } else if (payload?.startsWith('viewer_payload_')) {
+                viewerData = (await chrome.storage.local.get(payload))[payload];
+            }
+            let transcript = viewerData?.transcriptArray;
+            historical = !!viewerData?.isHistorical;
+            sourceTabId = viewerData?.sourceTabId ?? null;
+            sourceSessionId = viewerData?.sessionId ?? null;
+            if (viewerData?.meetingTitle) document.querySelector('h1').textContent = viewerData.meetingTitle + (historical ? ' (Historical)' : '');
+            setupEventListeners();
             // Use viewerData if captionsToView is not available
             if (!transcript && viewerData && viewerData.transcriptArray) {
                 transcript = viewerData.transcriptArray;
                 // Update title if it's historical data
                 if (viewerData.isHistorical && viewerData.meetingTitle) {
-                    document.querySelector('h1').innerHTML = `${escapeHtml(viewerData.meetingTitle)} <span style="font-size: 0.5em; color: #666;">(Historical)</span>`;
+                    document.querySelector('h1').innerHTML = `${escapeHtml(viewerData.meetingTitle)} <span style="font-size: 0.5em; color: var(--ck-text-muted);">(Historical)</span>`;
                 }
             }
 
@@ -628,35 +669,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 renderCaptions(transcript);
                 populateSpeakerFilters(transcript);
-                setupEventListeners();
+
                 
                 // Setup live streaming after initial load
-                setupLiveStreaming();
+                if (!historical && sourceTabId !== null) setupLiveStreaming();
                 
                 // Check if this is a completed meeting (not live)
                 // If we have captions but no live connection after setup, show meeting ended
                 setTimeout(async () => {
                     if (!isLiveStreaming && transcript.length > 0) {
-                        await addMeetingEndedMessage();
+                        addMeetingEndedMessage();
                     }
                 }, 1000);
             } else {
                 // Check if user navigated directly to the page
                 const isDirectNavigation = !result.captionsToView;
                 if (isDirectNavigation) {
-                    captionsContainer.innerHTML = '<p class="status-message">No transcript data available.<br><br>Please use the "View Transcript" button in the extension popup to load a transcript.</p>';
+                    renderViewerState(
+                        'Ready when your meeting is',
+                        'Open Better CaptionKeep from the Edge toolbar, start Teams live captions, then choose View Transcript.',
+                        { mark: '✓', showSteps: true }
+                    );
                 } else {
-                    captionsContainer.innerHTML = '<p class="status-message">Waiting for live captions...</p>';
+                    renderViewerState('Listening for captions', 'Keep this page open. New caption lines will appear as the conversation continues.', { mark: '…' });
                     // Still setup live streaming even if no initial captions
-                    setupLiveStreaming();
+                    if (!historical && sourceTabId !== null) setupLiveStreaming();
                 }
             }
         } catch (error) {
             console.error("Error loading captions:", error);
-            captionsContainer.innerHTML = '<p class="status-message">Unable to load captions. Please try opening the extension popup again.</p>';
+            renderViewerState('We could not load this transcript', 'Open the Better CaptionKeep popup and choose View Transcript again.', { mark: '!' });
         } finally {
             // Clean up storage to prevent re-displaying on next open
-            chrome.storage.local.remove(['captionsToView', 'viewerData']);
+            // Session-specific payload remains available for refresh; history is stored separately.
         }
     }
     
@@ -673,16 +718,14 @@ document.addEventListener('DOMContentLoaded', () => {
             text-align: center;
             padding: 20px;
             margin: 20px 0;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--ck-surface-soft);
+            border: 1px solid var(--ck-border);
             border-radius: 8px;
-            color: #6c757d;
+            color: var(--ck-text-muted);
             font-size: 16px;
         `;
         
-        let subtext = autoSaveOnEnd 
-            ? 'The transcript has been auto-saved.'
-            : 'The transcript is ready to save.';
+        let subtext = autoSaveOnEnd ? 'Check the export page for save status.' : 'The transcript is ready to save.';
             
         endedMessage.innerHTML = `<strong>Meeting Ended</strong><br><span style="font-size: 14px;">${subtext}</span>`;
         
@@ -705,10 +748,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function setupLiveStreaming() {
         // Check if content script is available and streaming
         try {
-            const tabs = await chrome.tabs.query({ url: "https://teams.microsoft.com/*" });
+            const tabs = sourceTabId === null ? [] : [{id:sourceTabId}];
             if (tabs.length > 0) {
                 const response = await chrome.tabs.sendMessage(tabs[0].id, { message: "viewer_ready" });
-                if (response && response.streaming) {
+                if (response && response.streaming && response.sessionId === sourceSessionId) {
                     isLiveStreaming = true;
                     lastUpdateTime = Date.now(); // Initialize timestamp
                     updateLiveIndicator();
@@ -720,7 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Setup message listener for live updates
-        chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+        chrome.runtime.onMessage.addListener((request, sender) => {
+            if (historical || sender.tab?.id !== sourceTabId || request.sessionId !== sourceSessionId) return false;
             if (request.message === "live_caption_update") {
                 isLiveStreaming = true;
                 lastUpdateTime = Date.now(); // Update timestamp when receiving messages
@@ -736,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Handle explicit meeting end signal
                 isLiveStreaming = false;
                 updateLiveIndicator();
-                await addMeetingEndedMessage();
+                addMeetingEndedMessage();
             }
         });
         
@@ -775,14 +819,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Lost connection to live stream");
             
             // Add "Meeting Ended" message
-            await addMeetingEndedMessage();
-            
-            // Try to reconnect
-            const tabs = await chrome.tabs.query({ url: "https://teams.microsoft.com/*" });
+            // Try to reconnect without declaring that silence means meeting end.
+            const tabs = sourceTabId === null ? [] : [{id:sourceTabId}];
             if (tabs.length > 0) {
                 try {
                     const response = await chrome.tabs.sendMessage(tabs[0].id, { message: "viewer_ready" });
-                    if (response && response.streaming) {
+                    if (response && response.streaming && response.sessionId === sourceSessionId) {
                         isLiveStreaming = true;
                         lastUpdateTime = Date.now(); // Reset timeout
                         updateLiveIndicator();
@@ -849,22 +891,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .sort((a, b) => b[1].wordCount - a[1].wordCount);
         
         let analyticsHTML = `
-                <h3 style="margin-top: 0; color: #495057;">Meeting Analytics</h3>
+                <h3 style="margin-top: 0; color: var(--ck-text);">Meeting Analytics</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
                     <div>
-                        <div style="font-size: 24px; font-weight: bold; color: #17a2b8;">${analytics.totalMessages}</div>
-                        <div style="font-size: 12px; color: #6c757d;">Total Messages</div>
+                        <div style="font-size: 24px; font-weight: bold; color: var(--ck-primary);">${analytics.totalMessages}</div>
+                        <div style="font-size: 12px; color: var(--ck-text-muted);">Total Messages</div>
                     </div>
                     <div>
-                        <div style="font-size: 24px; font-weight: bold; color: #28a745;">${analytics.totalWords}</div>
-                        <div style="font-size: 12px; color: #6c757d;">Total Words</div>
+                        <div style="font-size: 24px; font-weight: bold; color: var(--ck-success);">${analytics.totalWords}</div>
+                        <div style="font-size: 12px; color: var(--ck-text-muted);">Total Words</div>
                     </div>
                     <div>
-                        <div style="font-size: 24px; font-weight: bold; color: #ffc107;">${analytics.uniqueSpeakers}</div>
-                        <div style="font-size: 12px; color: #6c757d;">Speakers</div>
+                        <div style="font-size: 24px; font-weight: bold; color: var(--ck-warning);">${analytics.uniqueSpeakers}</div>
+                        <div style="font-size: 12px; color: var(--ck-text-muted);">Speakers</div>
                     </div>
                 </div>
-                <h4 style="margin-top: 15px; margin-bottom: 10px; color: #495057;">Speaker Participation</h4>
+                <h4 style="margin-top: 15px; margin-bottom: 10px; color: var(--ck-text);">Speaker Participation</h4>
                 <div style="space-y: 8px;">
         `;
         
@@ -873,18 +915,18 @@ document.addEventListener('DOMContentLoaded', () => {
             analyticsHTML += `
                 <div style="margin-bottom: 8px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                        <span style="font-size: 14px; color: #495057;">${escapeHtml(speaker)}</span>
-                        <span style="font-size: 12px; color: #6c757d;">${stats.wordCount} words (${percentage}%)</span>
+                        <span style="font-size: 14px; color: var(--ck-text);">${escapeHtml(speaker)}</span>
+                        <span style="font-size: 12px; color: var(--ck-text-muted);">${stats.wordCount} words (${percentage}%)</span>
                     </div>
-                    <div style="background: #e9ecef; border-radius: 4px; height: 20px; overflow: hidden;">
-                        <div style="background: linear-gradient(90deg, #17a2b8, #28a745); height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                    <div style="background: var(--ck-border); border-radius: 4px; height: 20px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, var(--ck-primary), var(--ck-success)); height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
                     </div>
                 </div>
             `;
         });
         
         if (sortedSpeakers.length > 5) {
-            analyticsHTML += `<div style="font-size: 12px; color: #6c757d; margin-top: 8px;">...and ${sortedSpeakers.length - 5} more speakers</div>`;
+            analyticsHTML += `<div style="font-size: 12px; color: var(--ck-text-muted); margin-top: 8px;">...and ${sortedSpeakers.length - 5} more speakers</div>`;
         }
         
         analyticsHTML += `
@@ -901,7 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Create new analytics container
             analyticsContainer = document.createElement('div');
             analyticsContainer.id = 'meeting-analytics';
-            analyticsContainer.style.cssText = 'background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #dee2e6;';
+            analyticsContainer.style.cssText = 'background: var(--ck-surface-soft); color: var(--ck-text); padding: 15px; margin-bottom: 20px; border-radius: 8px; border: 1px solid var(--ck-border);';
             analyticsContainer.innerHTML = analyticsHTML;
             container.parentNode.insertBefore(analyticsContainer, container);
         }

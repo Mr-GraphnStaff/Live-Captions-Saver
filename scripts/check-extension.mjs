@@ -48,8 +48,14 @@ async function validateManifest(manifest) {
   }
 
   const hostPermissions = manifest.host_permissions ?? [];
-  if (!hostPermissions.includes('https://teams.microsoft.com/*')) {
-    warnings.push('Host permissions should include "https://teams.microsoft.com/*".');
+  const requiredTeamsHosts = [
+    'https://teams.microsoft.com/*',
+    'https://teams.cloud.microsoft/*'
+  ];
+  for (const host of requiredTeamsHosts) {
+    if (!hostPermissions.includes(host)) {
+      errors.push(`Host permissions must include "${host}".`);
+    }
   }
 
   const backgroundWorker = manifest.background?.service_worker;
@@ -77,11 +83,15 @@ async function validateManifest(manifest) {
   }
 
   const scriptsToCheck = new Set([
+    'aiDestinations.js',
     'content_script.js',
+    'privacyScrubber.js',
     'popup.html',
     'popup.js',
     'service_worker.js',
     'sessionManager.js',
+    'theme.css',
+    'theme.js',
     'viewer.html',
     'viewer.js'
   ]);
@@ -96,13 +106,6 @@ async function validateManifest(manifest) {
   for (const script of declaredContentScripts) {
     if (!scriptsToCheck.has(script) && !(await fileExists(path.join(sourceDir, script)))) {
       warnings.push(`Content script "${script}" declared in manifest is missing.`);
-    }
-  }
-
-  const webAccessibleResources = (manifest.web_accessible_resources ?? []).flatMap(entry => entry.resources ?? []);
-  for (const resource of ['viewer.html', 'viewer.js', 'sessionManager.js']) {
-    if (!webAccessibleResources.includes(resource)) {
-      warnings.push(`Resource "${resource}" is not listed in web_accessible_resources.`);
     }
   }
 

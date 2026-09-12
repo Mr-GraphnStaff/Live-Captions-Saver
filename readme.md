@@ -6,7 +6,7 @@
 
 [Privacy policy](PRIVACY.md) · [Report an issue](https://github.com/Mr-GraphnStaff/better-captionkeep/issues) · [MIT license](LICENSE)
 
-Save live captions from Microsoft Teams in Microsoft Edge, including the Teams PWA. Export TXT or Markdown, choose a save location, and revisit saved sessions. Scribble is our listening transcript mascot.
+Save live captions from Microsoft Teams in Microsoft Edge, including the Teams PWA. Export TXT or Markdown, choose a save location, revisit saved sessions, and select a synchronized interface theme. Scribble is our listening transcript mascot.
 
 ## Interface previews
 
@@ -22,12 +22,29 @@ Screenshots below show the current packaged HTML and styling rendered in Microso
 - Export TXT or Markdown with a choice of save location.
 - Reopen saved sessions and use speaker aliases.
 - Optionally include attendee information or hand a transcript to an AI provider.
+- Choose CaptionKeep, Light, Midnight, or Follow system appearance across every extension page.
+- Work in a branded transcript viewer with a sticky search, speaker-filter, copy, save, and history toolbar.
 
-AI handoffs send text to the selected provider through a URL. Preferences may use browser sync; see the [privacy policy](PRIVACY.md) for the full data-handling details.
+AI handoffs prepare a local, editable prompt for review before you choose whether to copy or share it. For managed ChatGPT or Claude accounts, first open the approved enterprise workspace and copy its URL into **Settings → Enterprise destinations**. Better CaptionKeep accepts only official HTTPS provider domains, never places transcript text in a provider URL, and asks you to confirm the active workspace before pasting. Preferences, including enterprise destinations and the selected theme, may use browser sync; see the [privacy policy](PRIVACY.md) for the full data-handling details.
+
+## Themes
+
+Open the extension popup and select **Settings → Appearance → Theme**. The selection applies immediately to the popup, transcript viewer, export page, and AI handoff page. CaptionKeep preserves the original cream-and-teal appearance; Follow system responds to the operating-system light or dark preference.
 
 ## Install for local testing
 
-The independent fork is not yet published on Microsoft Edge Add-ons. Existing upstream store listings install the original extension, not this fork.
+Version 4.6 is published on Microsoft Edge Add-ons. These steps load the in-development 4.7 extension directly for testing.
+
+### Mid-feature Chrome and Edge checkpoint
+
+Run `npm run build:targets` to create four ignored test artifacts:
+
+- `dist/chrome-unpacked` and `dist/better_captionkeep_chrome_test-4.7.0.zip`
+- `dist/edge-unpacked` and `dist/better_captionkeep_edge_test-4.7.0.zip`
+
+The unpacked folders each contain the effective browser-labeled `manifest.json`. They use separate extension identities and local storage from the published Edge 4.6 extension, so testing does not update or overwrite the Store installation.
+
+For Chrome, open `chrome://extensions`; for Edge, open `edge://extensions`. Enable Developer mode, choose **Load unpacked**, and select the corresponding folder above. Remove the unpacked test extension when the checkpoint is finished.
 
 1. Open Microsoft Edge and visit `edge://extensions`.
 2. Enable Developer mode.
@@ -48,7 +65,7 @@ Browser API identifiers such as `chrome.storage` remain unchanged because Edge i
 
 ## Publication status
 
-Target store: **Microsoft Edge Add-ons only**. Publisher enrollment is complete and a store submission is being prepared. The [privacy policy](PRIVACY.md) is published. Live Teams testing, permission cleanup, AI handoff disclosure review, and final store materials remain outstanding. This repository does not imply store approval.
+Target store: **Microsoft Edge Add-ons only**. Version 4.6 is live. Version 4.7 is in development and must complete live Teams testing and release review before a separate Store submission.
 
 ## Attribution and license
 
