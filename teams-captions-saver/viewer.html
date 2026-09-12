@@ -421,6 +421,8 @@
     </style>
     <link rel="stylesheet" href="theme.css">
     <script src="theme.js" defer></script>
+    <script src="configuration.js" defer></script>
+    <script src="privacyScrubber.js" defer></script>
     <script src="sessionManager.js" defer></script>
     <script src="viewer.js" defer></script>
 </head>
@@ -442,6 +444,9 @@
                     <button id="show-all-btn" class="active" aria-label="Show all speakers">Show All</button>
                 </div>
                 <div class="export-controls">
+                    <label class="scrub-output" title="Mask supported sensitive details in copied and saved output">
+                        <input type="checkbox" id="scrub-output-toggle" checked> Scrubby outputs
+                    </label>
                     <button id="copy-all-btn" class="export-btn" title="Copy visible transcript to clipboard">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>

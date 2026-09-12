@@ -15,6 +15,9 @@
     "activeTab",
     "storage"
   ],
+  "storage": {
+    "managed_schema": "managed-schema.json"
+  },
   "host_permissions": [
     "https://teams.microsoft.com/*",
     "https://teams.cloud.microsoft/*"
@@ -39,6 +42,7 @@
         "https://teams.cloud.microsoft/*"
       ],
       "js": [
+        "configuration.js",
         "content_script.js"
       ]
     }

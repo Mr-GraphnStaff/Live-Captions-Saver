@@ -70,6 +70,19 @@ async function validateManifest(manifest) {
     errors.push(`Action popup file "${defaultPopup}" is missing.`);
   }
 
+  const managedSchema = manifest.storage?.managed_schema;
+  if (!managedSchema) {
+    errors.push('storage.managed_schema is required for enterprise policy support.');
+  } else if (!(await fileExists(path.join(sourceDir, managedSchema)))) {
+    errors.push(`Managed storage schema "${managedSchema}" is missing.`);
+  } else {
+    try {
+      JSON.parse(await readFile(path.join(sourceDir, managedSchema), 'utf8'));
+    } catch (error) {
+      errors.push(`Managed storage schema is not valid JSON: ${error.message}`);
+    }
+  }
+
   const defaultIcon = manifest.action?.default_icon;
   for (const icon of typeof defaultIcon === 'string' ? [defaultIcon] : Object.values(defaultIcon ?? {})) {
     if (!(await fileExists(path.join(sourceDir, icon)))) errors.push(`Action icon ${icon} is missing.`);
@@ -84,8 +97,10 @@ async function validateManifest(manifest) {
 
   const scriptsToCheck = new Set([
     'aiDestinations.js',
+    'configuration.js',
     'content_script.js',
     'privacyScrubber.js',
+    'managed-schema.json',
     'popup.html',
     'popup.js',
     'service_worker.js',
@@ -103,6 +118,9 @@ async function validateManifest(manifest) {
   }
 
   const declaredContentScripts = (manifest.content_scripts ?? []).flatMap(entry => entry.js ?? []);
+  if (declaredContentScripts[0] !== 'configuration.js') {
+    errors.push('configuration.js must load before the Teams content script.');
+  }
   for (const script of declaredContentScripts) {
     if (!scriptsToCheck.has(script) && !(await fileExists(path.join(sourceDir, script)))) {
       warnings.push(`Content script "${script}" declared in manifest is missing.`);

@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyAllBtn = document.getElementById('copy-all-btn');
     const saveAllBtn = document.getElementById('save-all-btn');
     const historyBtn = document.getElementById('history-btn');
+    const scrubOutputToggle = document.getElementById('scrub-output-toggle');
     const sessionModal = document.getElementById('sessionModal');
     const sessionListModal = document.getElementById('sessionListModal');
     const closeModal = document.querySelector('.close-modal');
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let meetingStartTime = null;
     let meetingEndTime = null;
     const SEARCH_DEBOUNCE_DELAY = 300;
+    let scrubOptions = {};
     
     // Live streaming state
     let isLiveStreaming = false;
@@ -384,6 +386,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return captions.map(entry => `[${entry.Time}] ${entry.Name}: ${entry.Text}`).join('\n');
         }
     }
+
+    function prepareOutput(captions) {
+        return scrubOutputToggle?.checked
+            ? CaptionKeepPrivacyScrubber.scrubTranscript(captions, scrubOptions)
+            : { transcript: captions, replacements: [] };
+    }
     
     async function handleCopyAllClick() {
         const visibleCaptions = getVisibleCaptions();
@@ -393,12 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const textToCopy = formatTranscriptForExport(visibleCaptions);
+        const output = prepareOutput(visibleCaptions);
+        const textToCopy = formatTranscriptForExport(output.transcript);
         
         try {
             await navigator.clipboard.writeText(textToCopy);
             showButtonSuccess(copyAllBtn, 'Copied!', 'Copy All');
-            showNotification(`Copied ${visibleCaptions.length} caption(s) to clipboard`, 'success');
+            showNotification(`Copied ${visibleCaptions.length} caption(s)${output.replacements.length ? ` with ${output.replacements.length} detail(s) masked` : ''}`, 'success');
         } catch (err) {
             console.error('Failed to copy transcript: ', err);
             showNotification('Failed to copy to clipboard', 'error');
@@ -415,12 +424,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             const {defaultSaveFormat = 'txt'} = await chrome.storage.sync.get('defaultSaveFormat');
-            const result = await chrome.runtime.sendMessage({message:'download_captions', transcriptArray:visibleCaptions,
+            const output = prepareOutput(visibleCaptions);
+            const result = await chrome.runtime.sendMessage({message:'download_captions', transcriptArray:output.transcript,
                 format:defaultSaveFormat, meetingTitle:document.querySelector('h1').textContent});
             if (!result?.ok) throw new Error(result?.error || 'Could not prepare export');
             showNotification('Export ready. Choose a destination on the save page.', 'success');
         } catch (error) { showNotification(error.message,'error'); }
     }
+
+    (async () => {
+        const user = await chrome.storage.sync.get(['privacyScrubberEnabled', 'profanityFilterEnabled', 'customScrubTerms']);
+        const policy = CaptionKeepConfiguration.applyPolicy(user, await CaptionKeepConfiguration.readManaged());
+        scrubOutputToggle.checked = policy.settings.privacyScrubberEnabled !== false;
+        scrubOutputToggle.disabled = policy.locked.includes('privacyScrubberEnabled');
+        scrubOptions = { profanityFilterEnabled: !!policy.settings.profanityFilterEnabled, customTerms: policy.settings.customScrubTerms || [] };
+    })();
 
 
     function showButtonSuccess(button, successText, originalText) {

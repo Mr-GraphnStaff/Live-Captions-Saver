@@ -182,6 +182,23 @@
             border-bottom: 1px solid #eee;
             padding-bottom: 5px;
         }
+        details.settings-group {
+            margin-top: 8px;
+            padding: 0 10px 10px;
+            border: 1px solid var(--ck-border);
+            border-radius: 8px;
+            background: var(--ck-surface-soft);
+        }
+        details.settings-group > summary {
+            padding: 10px 2px;
+            cursor: pointer;
+            color: var(--ck-text);
+            font-size: 14px;
+            font-weight: 650;
+            list-style-position: outside;
+        }
+        details.settings-group[open] > summary { border-bottom: 1px solid var(--ck-border); margin-bottom: 8px; }
+        .settings-intro { margin: 3px 0 8px; color: var(--ck-text-muted); font-size: 12px; }
         .setting-item {
             width: 100%;
             display: flex;
@@ -359,7 +376,9 @@
     </style>
     <link rel="stylesheet" href="theme.css">
     <script src="theme.js" defer></script>
+    <script src="configuration.js" defer></script>
     <script src="aiDestinations.js" defer></script>
+    <script src="privacyScrubber.js" defer></script>
     <script src="popup.js" defer></script>
 </head>
 
@@ -377,6 +396,7 @@
             <button id="copyDropdownButton" class="split-button-dropdown" disabled>▾</button>
             <div id="copyOptions" class="split-button-options">
                 <a href="#" data-copy-type="standard">Copy Transcript</a>
+                <a href="#" data-copy-type="cleaned">Copy Cleaned Transcript</a>
             </div>
         </div>
         <div class="split-button" id="save-container">
@@ -385,6 +405,8 @@
             <div id="saveOptions" class="split-button-options">
                 <a href="#" data-format="txt">Save as TXT (.txt)</a>
                 <a href="#" data-format="md">Save as Markdown (.md)</a>
+                <a href="#" data-format="txt" data-cleaned="true">Save Cleaned TXT (.txt)</a>
+                <a href="#" data-format="md" data-cleaned="true">Save Cleaned Markdown (.md)</a>
             </div>
         </div>
     </div>
@@ -404,9 +426,10 @@
 
     <div class="settings-container">
         <h3 class="settings-header">Settings</h3>
+        <p class="settings-intro">Your everyday controls stay up front. Open a section only when you need it.</p>
 
-        <div class="settings-group">
-            <p class="settings-subheader">Appearance</p>
+        <details class="settings-group">
+            <summary>Appearance</summary>
             <div class="setting-item">
                 <label for="themeSelect" class="setting-label">Theme</label>
                 <select id="themeSelect">
@@ -417,18 +440,18 @@
                 </select>
             </div>
             <p class="small-info-text">Applies to the popup, transcript viewer, exports, and AI handoff.</p>
-        </div>
+        </details>
 
-        <div class="settings-group">
-            <p class="settings-subheader">Session Settings</p>
+        <details class="settings-group">
+            <summary>Speaker aliases</summary>
             <div id="speaker-alias-container">
                  <label class="setting-label" style="margin-bottom: 10px;">Speaker Aliases</label>
                  <div id="speaker-alias-list"><p>Start capturing to see the speaker list.</p></div>
             </div>
-        </div>
+        </details>
 
-        <div class="settings-group">
-            <p class="settings-subheader">Export & Automation</p>
+        <details class="settings-group">
+            <summary>Export and auto-save</summary>
             <div class="setting-item">
                 <label for="defaultSaveFormat" class="setting-label">Default Save Format</label>
                 <select id="defaultSaveFormat">
@@ -443,10 +466,10 @@
                 <label class="toggle-switch"><input type="checkbox" id="autoSaveOnEndToggle"><span class="slider"></span></label>
             </div>
              <p class="small-info-text">Prepares an export when the meeting ends. Writes to your selected folder only while permission is granted; otherwise keeps the export pending.</p>
-        </div>
+        </details>
 
-        <div class="settings-group">
-            <p class="settings-subheader">Capture Settings</p>
+        <details class="settings-group" open>
+            <summary>Capture controls</summary>
             <div class="setting-item">
                 <label for="trackCaptionsToggle" class="setting-label">Track Live Captions</label>
                 <label class="toggle-switch"><input type="checkbox" id="trackCaptionsToggle" checked><span class="slider"></span></label>
@@ -469,15 +492,25 @@
                 <label class="toggle-switch"><input type="checkbox" id="autoOpenAttendeesToggle"><span class="slider"></span></label>
             </div>
             <p class="small-info-text">Automatically open roster panel for attendee tracking (requires "Track Meeting Attendees" to be enabled).</p>
+        </details>
+
+        <details class="settings-group">
+            <summary>AI handoff and privacy</summary>
             <div class="setting-item">
                 <label for="autoAISummaryToggle" class="setting-label">Prepare AI handoff</label>
                 <label class="toggle-switch"><input type="checkbox" id="autoAISummaryToggle"><span class="slider"></span></label>
             </div>
             <p class="small-info-text">Prepare a local prompt for review and copying after each meeting. No transcript is placed in provider URLs.</p>
+            <div class="setting-item">
+                <label for="privacyScrubberToggle" class="setting-label"><img src="icons/scrubby-256.png" alt="" style="width: 34px; height: 34px; vertical-align: middle; margin-right: 7px;">Privacy Scrubber</label>
+                <label class="toggle-switch"><input type="checkbox" id="privacyScrubberToggle" checked><span class="slider"></span></label>
+            </div>
+            <p class="small-info-text">Mask supported sensitive details locally before an AI handoff. You can temporarily change this on the review page; original transcripts stay unchanged.</p>
             <div class="setting-item ai-provider-options" id="aiProviderOptions" style="display: none;">
                 <label class="ai-provider-option"><input type="checkbox" data-provider="chatgpt">ChatGPT</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="claude">Claude</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="claude_console">Claude (Console)</label>
+                <label class="ai-provider-option"><input type="checkbox" data-provider="copilot">Microsoft Copilot</label>
                 <label class="ai-provider-option"><input type="checkbox" data-provider="gemini">Gemini</label>
             </div>
             <div class="enterprise-destinations" id="enterpriseDestinations" style="display: none;">
@@ -490,7 +523,21 @@
                 <input type="url" id="claudeConsoleUrl" placeholder="https://console.anthropic.com/..." autocomplete="off">
             </div>
             <p class="small-info-text" id="aiProviderHint" style="display: none;">Review the prompt locally before copying or sharing it. Long transcripts are marked when truncated.</p>
-            <p class="small-info-text" id="enterpriseDestinationHint" style="display: none;">Optional: switch into the approved enterprise workspace first, copy its URL, and paste it above. Only official ChatGPT, Claude, and Anthropic Console domains are accepted.</p>
+            <p class="small-info-text" id="enterpriseDestinationHint" style="display: none;">Optional: save approved ChatGPT, Claude, and Anthropic Console workspace URLs. Microsoft Copilot opens its official Microsoft 365 chat URL. Always confirm the active organization before pasting.</p>
+            <div class="setting-item">
+                <label for="profanityFilterToggle" class="setting-label">Profanity filter</label>
+                <label class="toggle-switch"><input type="checkbox" id="profanityFilterToggle"><span class="slider"></span></label>
+            </div>
+            <p class="small-info-text">Optional and off by default. Masks a transparent built-in profanity list in cleaned AI handoffs.</p>
+            <div class="setting-item" style="flex-direction: column; align-items: stretch; gap: 6px;">
+                <label for="customScrubTerms" class="setting-label">Custom terms to mask</label>
+                <textarea id="customScrubTerms" rows="3" placeholder="One term per line"></textarea>
+                <p class="small-info-text">Local only. Useful for project names, people, or organization-specific sensitive words.</p>
+            </div>
+        </details>
+
+        <details class="settings-group">
+            <summary>Naming and timestamps</summary>
             <div class="setting-item">
                 <label for="timestampFormat" class="setting-label">Timestamp Format</label>
                 <select id="timestampFormat" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
@@ -508,7 +555,17 @@
                 <p class="small-info-text">Variables: {date}, {time}, {datetime}, {title}, {format}, {attendees}</p>
                 <p class="small-info-text" id="filenamePreview">Example:</p>
             </div>
-        </div>
+        </details>
+        <details class="settings-group">
+            <summary>Configuration portability</summary>
+            <p class="small-info-text">Export user preferences for backup or EUC repackaging. Transcript history is never included.</p>
+            <div class="actions-row">
+                <button id="exportConfiguration" type="button">Export settings</button>
+                <button id="importConfiguration" type="button">Import settings</button>
+                <input id="configurationFile" type="file" accept="application/json,.json" hidden>
+            </div>
+            <p class="small-info-text" id="configurationStatus" role="status" aria-live="polite"></p>
+        </details>
     </div>
 </body>
 </html>

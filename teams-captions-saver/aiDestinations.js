@@ -5,6 +5,7 @@
         chatgpt: Object.freeze({ name: 'ChatGPT', defaultUrl: 'https://chatgpt.com/', settingKey: 'chatgptWorkspaceUrl', allowedHosts: Object.freeze(['chatgpt.com']) }),
         claude: Object.freeze({ name: 'Claude', defaultUrl: 'https://claude.ai/', settingKey: 'claudeWorkspaceUrl', allowedHosts: Object.freeze(['claude.ai']) }),
         claude_console: Object.freeze({ name: 'Claude Console', defaultUrl: 'https://console.anthropic.com/', settingKey: 'claudeConsoleUrl', allowedHosts: Object.freeze(['console.anthropic.com']) }),
+        copilot: Object.freeze({ name: 'Microsoft Copilot', defaultUrl: 'https://m365.cloud.microsoft/chat/', settingKey: null, allowedHosts: Object.freeze(['m365.cloud.microsoft']) }),
         gemini: Object.freeze({ name: 'Gemini', defaultUrl: 'https://gemini.google.com/', settingKey: null, allowedHosts: Object.freeze(['gemini.google.com']) })
     });
 

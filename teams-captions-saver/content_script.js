@@ -49,7 +49,9 @@ let stateCheckRunning = false;
 let attendeeStartTimer = null;
 let captureState = 'idle';
 let checkpointError = '';
-const documentSessionId = crypto.randomUUID();
+const ACTIVE_CAPTURE_KEY = 'active_capture_v1';
+let documentSessionId = crypto.randomUUID();
+let restoredFromCheckpoint = false;
 let meetingTitleOnStart = '';
 let recordingStartTime = null;
 let observer = null;
@@ -314,13 +316,14 @@ async function maybeTriggerAiSummaries(transcript, meetingTitle, meetingId) {
     }
 
     try {
-        const { autoAISummary, aiSummaryProviders } = await chrome.storage.sync.get(['autoAISummary', 'aiSummaryProviders']);
-        if (!autoAISummary) {
+        const userSettings = await chrome.storage.sync.get(['autoAISummary', 'aiSummaryProviders']);
+        const policy = CaptionKeepConfiguration.applyPolicy(userSettings, await CaptionKeepConfiguration.readManaged());
+        if (!policy.settings.autoAISummary) {
             return;
         }
 
-        const providers = Array.isArray(aiSummaryProviders)
-            ? aiSummaryProviders.filter(provider => typeof provider === 'string' && provider.trim().length > 0)
+        const providers = Array.isArray(policy.settings.aiSummaryProviders)
+            ? policy.settings.aiSummaryProviders.filter(provider => typeof provider === 'string' && provider.trim().length > 0)
             : [];
 
         if (providers.length === 0) {
@@ -845,13 +848,14 @@ async function startCaptureSession() {
     if (capturing || !trackingAllowed) return;
 
     console.log("New caption session detected. Starting capture.");
-    if (!pausedByUser) {
+    if (!pausedByUser && !restoredFromCheckpoint) {
         transcriptArray.length = 0;
         meetingTitleOnStart = document.title;
         recordingStartTime = new Date();
         chrome.runtime.sendMessage({message:'reset_aliases'}).catch(() => {});
     }
     pausedByUser = false;
+    restoredFromCheckpoint = false;
 
     capturing = true;
     captureState = 'capturing';
@@ -874,13 +878,46 @@ async function startCaptureSession() {
 async function persistBackup() {
     if (!transcriptArray.length) return;
     try {
-        await chrome.storage.local.set({ [`backup_${documentSessionId}`]: {
+        const snapshot = {
             transcript: getCleanTranscript(), meetingTitle: meetingTitleOnStart,
             recordingStartTime: recordingStartTime?.toISOString(), lastBackup: new Date().toISOString(),
+            documentSessionId, pageUrl: window.location.href,
             attendeeData: { ...attendeeData, allAttendees:[...attendeeData.allAttendees], currentAttendees:[...attendeeData.currentAttendees] }
-        }});
+        };
+        await chrome.storage.local.set({ [`backup_${documentSessionId}`]: snapshot, [ACTIVE_CAPTURE_KEY]: snapshot });
         checkpointError = '';
     } catch (error) { checkpointError = 'Recovery save failed: ' + error.message; }
+}
+
+async function restoreActiveCapture() {
+    try {
+        const snapshot = (await chrome.storage.local.get(ACTIVE_CAPTURE_KEY))[ACTIVE_CAPTURE_KEY];
+        const age = Date.now() - Date.parse(snapshot?.lastBackup || '');
+        if (!snapshot || !Array.isArray(snapshot.transcript) || !snapshot.transcript.length ||
+            !Number.isFinite(age) || age > 4 * 60 * 60 * 1000 || snapshot.pageUrl !== window.location.href) return false;
+
+        transcriptArray.splice(0, transcriptArray.length, ...snapshot.transcript);
+        meetingTitleOnStart = snapshot.meetingTitle || document.title;
+        recordingStartTime = snapshot.recordingStartTime ? new Date(snapshot.recordingStartTime) : new Date();
+        if (typeof snapshot.documentSessionId === 'string' && /^[a-f0-9-]+$/i.test(snapshot.documentSessionId)) {
+            documentSessionId = snapshot.documentSessionId;
+        }
+        if (snapshot.attendeeData) {
+            attendeeData = {
+                ...attendeeData,
+                ...snapshot.attendeeData,
+                allAttendees: new Set(snapshot.attendeeData.allAttendees || []),
+                currentAttendees: new Map(snapshot.attendeeData.currentAttendees || [])
+            };
+        }
+        restoredFromCheckpoint = true;
+        checkpointError = 'Capture resumed from a recovery checkpoint. The reload interval may be incomplete.';
+        captureState = 'recovering';
+        return true;
+    } catch (error) {
+        checkpointError = 'Recovery check failed: ' + error.message;
+        return false;
+    }
 }
 
 function startPeriodicBackup() {
@@ -890,24 +927,7 @@ function startPeriodicBackup() {
     }
     
     // Backup transcript every 30 seconds
-    backupInterval = setInterval(async () => {
-        if (transcriptArray.length > 0) {
-            try {
-                await chrome.storage.local.set({
-                    [`backup_${documentSessionId}`]: {
-                        transcript: transcriptArray,
-                        meetingTitle: meetingTitleOnStart,
-                        recordingStartTime: recordingStartTime ? recordingStartTime.toISOString() : null,
-                        lastBackup: new Date().toISOString(),
-                        attendeeData: { ...attendeeData, allAttendees: [...attendeeData.allAttendees], currentAttendees: [...attendeeData.currentAttendees] }
-                    }
-                });
-                checkpointError = '';
-            } catch (error) {
-                checkpointError = 'Recovery save failed: ' + error.message;
-            }
-        }
-    }, 30000); // 30 seconds
+    backupInterval = setInterval(persistBackup, 30000); // 30 seconds
 }
 
 function stopCaptureSession() {
@@ -956,6 +976,7 @@ async function saveToSessionHistory() {
         });
         
         if (!result?.ok) throw new Error(result?.error || 'History save failed');
+        await chrome.storage.local.remove(ACTIVE_CAPTURE_KEY);
         checkpointError = '';
     } catch (error) {
         checkpointError = 'History save failed: ' + error.message;
@@ -1124,9 +1145,10 @@ function cleanupObservers() {
 window.addEventListener('beforeunload', cleanupObservers);
 
 // Initialize the system
-chrome.storage.sync.get(['trackCaptions', 'trackAttendees']).then(settings => {
+chrome.storage.sync.get(['trackCaptions', 'trackAttendees']).then(async settings => {
     trackingAllowed = settings.trackCaptions !== false;
     attendeesAllowed = settings.trackAttendees !== false;
+    await restoreActiveCapture();
     initializeEventDrivenSystem();
 });
 

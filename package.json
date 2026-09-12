@@ -10,10 +10,11 @@
     "build:targets": "node scripts/build-browser-targets.mjs && web-ext build --source-dir dist/chrome-unpacked --artifacts-dir dist --overwrite-dest && web-ext build --source-dir dist/edge-unpacked --artifacts-dir dist --overwrite-dest",
     "build:chrome-test": "node scripts/build-browser-targets.mjs chrome && web-ext build --source-dir dist/chrome-unpacked --artifacts-dir dist --overwrite-dest",
     "build:edge-test": "node scripts/build-browser-targets.mjs edge && web-ext build --source-dir dist/edge-unpacked --artifacts-dir dist --overwrite-dest",
+    "release:candidate": "npm test && npm run lint && npm run build && npm run build:targets && node scripts/verify-release.mjs",
     "start": "web-ext run --source-dir teams-captions-saver --target=chromium"
   },
   "devDependencies": {
-    "web-ext": "^8.10.0"
+    "web-ext": "^10.6.0"
   },
   "engines": {
     "node": ">=18.0.0"

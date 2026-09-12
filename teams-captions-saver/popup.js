@@ -21,6 +21,13 @@ const UI_ELEMENTS = {
     trackAttendeesToggle: document.getElementById('trackAttendeesToggle'),
     autoOpenAttendeesToggle: document.getElementById('autoOpenAttendeesToggle'),
     autoAISummaryToggle: document.getElementById('autoAISummaryToggle'),
+    privacyScrubberToggle: document.getElementById('privacyScrubberToggle'),
+    profanityFilterToggle: document.getElementById('profanityFilterToggle'),
+    customScrubTerms: document.getElementById('customScrubTerms'),
+    exportConfiguration: document.getElementById('exportConfiguration'),
+    importConfiguration: document.getElementById('importConfiguration'),
+    configurationFile: document.getElementById('configurationFile'),
+    configurationStatus: document.getElementById('configurationStatus'),
     aiProviderOptions: document.getElementById('aiProviderOptions'),
     aiProviderHint: document.getElementById('aiProviderHint'),
     enterpriseDestinations: document.getElementById('enterpriseDestinations'),
@@ -60,7 +67,7 @@ function escapeHtml(str) {
 
 async function getActiveTeamsTab() {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const teamsTab = tabs.find(tab => tab.url?.startsWith("https://teams.microsoft.com"));
+    const teamsTab = tabs.find(tab => /^https:\/\/teams\.(?:microsoft\.com|cloud\.microsoft)(?:\/|$)/.test(tab.url || ''));
     return teamsTab || null;
 }
 
@@ -75,6 +82,12 @@ async function formatTranscript(transcript, aliases = {}) {
     }));
 
     return processed.map(entry => `[${entry.Time}] ${entry.Name}: ${entry.Text}`).join('\n');
+}
+
+async function getScrubOptions() {
+    const user = await chrome.storage.sync.get(['profanityFilterEnabled', 'customScrubTerms']);
+    const policy = CaptionKeepConfiguration.applyPolicy(user, await CaptionKeepConfiguration.readManaged());
+    return { profanityFilterEnabled: !!policy.settings.profanityFilterEnabled, customTerms: policy.settings.customScrubTerms || [] };
 }
 
 // --- UI Update Functions ---
@@ -261,7 +274,7 @@ async function renderSpeakerAliases(tab) {
 
 // --- Settings Management ---
 async function loadSettings() {
-    const settings = await chrome.storage.sync.get([
+    const userSettings = await chrome.storage.sync.get([
         'autoEnableCaptions',
         'autoSaveOnEnd',
         'defaultSaveFormat',
@@ -271,6 +284,9 @@ async function loadSettings() {
         'trackAttendees',
         'autoOpenAttendees',
         'autoAISummary',
+        'privacyScrubberEnabled',
+        'profanityFilterEnabled',
+        'customScrubTerms',
         'aiSummaryProviders',
         'chatgptWorkspaceUrl',
         'claudeWorkspaceUrl',
@@ -279,6 +295,9 @@ async function loadSettings() {
         'filenamePattern',
         'uiTheme'
     ]);
+    const policy = CaptionKeepConfiguration.applyPolicy(userSettings, await CaptionKeepConfiguration.readManaged());
+    const settings = policy.settings;
+    const locked = new Set(policy.locked);
 
     UI_ELEMENTS.autoEnableCaptionsToggle.checked = !!settings.autoEnableCaptions;
     UI_ELEMENTS.autoSaveOnEndToggle.checked = !!settings.autoSaveOnEnd;
@@ -290,14 +309,33 @@ async function loadSettings() {
     }
     if (UI_ELEMENTS.autoAISummaryToggle) {
         UI_ELEMENTS.autoAISummaryToggle.checked = !!settings.autoAISummary;
+        UI_ELEMENTS.autoAISummaryToggle.disabled = locked.has('autoAISummary');
+    }
+    if (UI_ELEMENTS.privacyScrubberToggle) {
+        UI_ELEMENTS.privacyScrubberToggle.checked = settings.privacyScrubberEnabled !== false;
+        UI_ELEMENTS.privacyScrubberToggle.disabled = locked.has('privacyScrubberEnabled');
+    }
+    if (UI_ELEMENTS.profanityFilterToggle) {
+        UI_ELEMENTS.profanityFilterToggle.checked = !!settings.profanityFilterEnabled;
+        UI_ELEMENTS.profanityFilterToggle.disabled = locked.has('profanityFilterEnabled');
+    }
+    if (UI_ELEMENTS.customScrubTerms) {
+        UI_ELEMENTS.customScrubTerms.value = CaptionKeepConfiguration.normalizeTerms(settings.customScrubTerms).join('\n');
+        UI_ELEMENTS.customScrubTerms.disabled = locked.has('customScrubTerms');
     }
     updateAiProviderOptionsState(
         !!settings.autoAISummary,
         Array.isArray(settings.aiSummaryProviders) ? settings.aiSummaryProviders : []
     );
+    if (locked.has('aiSummaryProviders')) {
+        getAiProviderCheckboxes().forEach(checkbox => { checkbox.disabled = true; });
+    }
     if (UI_ELEMENTS.chatgptWorkspaceUrl) UI_ELEMENTS.chatgptWorkspaceUrl.value = settings.chatgptWorkspaceUrl || '';
     if (UI_ELEMENTS.claudeWorkspaceUrl) UI_ELEMENTS.claudeWorkspaceUrl.value = settings.claudeWorkspaceUrl || '';
     if (UI_ELEMENTS.claudeConsoleUrl) UI_ELEMENTS.claudeConsoleUrl.value = settings.claudeConsoleUrl || '';
+    for (const [key, input] of [['chatgptWorkspaceUrl', UI_ELEMENTS.chatgptWorkspaceUrl], ['claudeWorkspaceUrl', UI_ELEMENTS.claudeWorkspaceUrl], ['claudeConsoleUrl', UI_ELEMENTS.claudeConsoleUrl]]) {
+        if (input && locked.has(key)) input.disabled = true;
+    }
     UI_ELEMENTS.timestampFormat.value = settings.timestampFormat || '12hr';
     UI_ELEMENTS.filenamePattern.value = settings.filenamePattern || '{date}_{title}_{format}';
     if (UI_ELEMENTS.themeSelect) {
@@ -401,6 +439,52 @@ function setupEventListeners() {
         });
     }
 
+    if (UI_ELEMENTS.privacyScrubberToggle) {
+        UI_ELEMENTS.privacyScrubberToggle.addEventListener('change', (event) => {
+            chrome.storage.sync.set({ privacyScrubberEnabled: event.target.checked });
+        });
+    }
+
+    if (UI_ELEMENTS.profanityFilterToggle) {
+        UI_ELEMENTS.profanityFilterToggle.addEventListener('change', (event) => {
+            chrome.storage.sync.set({ profanityFilterEnabled: event.target.checked });
+        });
+    }
+
+    if (UI_ELEMENTS.customScrubTerms) {
+        UI_ELEMENTS.customScrubTerms.addEventListener('change', (event) => {
+            chrome.storage.sync.set({ customScrubTerms: CaptionKeepConfiguration.normalizeTerms(event.target.value) });
+        });
+    }
+
+    UI_ELEMENTS.exportConfiguration?.addEventListener('click', async () => {
+        const settings = await chrome.storage.sync.get(CaptionKeepConfiguration.USER_KEYS);
+        const content = CaptionKeepConfiguration.createExport(settings);
+        const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'better-captionkeep-settings.json';
+        anchor.click();
+        URL.revokeObjectURL(url);
+        UI_ELEMENTS.configurationStatus.textContent = 'Settings exported. Transcript history was not included.';
+    });
+
+    UI_ELEMENTS.importConfiguration?.addEventListener('click', () => UI_ELEMENTS.configurationFile?.click());
+    UI_ELEMENTS.configurationFile?.addEventListener('change', async (event) => {
+        try {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const settings = CaptionKeepConfiguration.parseImport(await file.text());
+            await chrome.storage.sync.set(settings);
+            UI_ELEMENTS.configurationStatus.textContent = 'Settings imported.';
+            await loadSettings();
+        } catch (error) {
+            UI_ELEMENTS.configurationStatus.textContent = error.message;
+        } finally {
+            event.target.value = '';
+        }
+    });
+
     getAiProviderCheckboxes().forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             const selectedProviders = getSelectedAiProviders();
@@ -486,8 +570,13 @@ async function handleCopy(target) {
         if (response?.transcriptArray) {
             const { speakerAliases = {} } = await chrome.storage.session.get('speakerAliases');
             const formattedText = await formatTranscript(response.transcriptArray, speakerAliases);
-            await navigator.clipboard.writeText(formattedText);
-            UI_ELEMENTS.statusMessage.textContent = "Copied to clipboard!";
+            const output = target.dataset.copyType === 'cleaned'
+                ? CaptionKeepPrivacyScrubber.scrub(formattedText, await getScrubOptions())
+                : { text: formattedText, replacements: [] };
+            await navigator.clipboard.writeText(output.text);
+            UI_ELEMENTS.statusMessage.textContent = target.dataset.copyType === 'cleaned'
+                ? `Copied cleaned transcript (${output.replacements.length} masked).`
+                : 'Copied transcript to clipboard!';
             UI_ELEMENTS.statusMessage.style.color = 'var(--ck-success)';
         }
     } catch (error) {
@@ -503,7 +592,17 @@ async function handleSave(target) {
     const tab = await getActiveTeamsTab();
     if (tab) {
         UI_ELEMENTS.statusMessage.textContent = `Saving as ${format.toUpperCase()}...`;
-        chrome.tabs.sendMessage(tab.id, { message: "return_transcript", format });
+        if (target.dataset.cleaned !== 'true') {
+            chrome.tabs.sendMessage(tab.id, { message: "return_transcript", format });
+            return;
+        }
+        const response = await chrome.tabs.sendMessage(tab.id, { message: 'get_transcript_for_copying' });
+        const cleaned = CaptionKeepPrivacyScrubber.scrubTranscript(response?.transcriptArray || [], await getScrubOptions());
+        const result = await chrome.runtime.sendMessage({ message: 'download_captions', transcriptArray: cleaned.transcript,
+            format, meetingTitle: tab.title || 'Teams Meeting' });
+        UI_ELEMENTS.statusMessage.textContent = result?.ok
+            ? `Cleaned export ready (${cleaned.replacements.length} masked).`
+            : 'Could not prepare cleaned export.';
     }
 }
 

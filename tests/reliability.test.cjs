@@ -130,6 +130,8 @@ test('manifest supports both official Teams web hosts',()=>{
         assert(manifest.host_permissions.includes(host));
         assert(manifest.content_scripts.some(entry=>entry.matches.includes(host)));
     }
+    assert.equal(manifest.storage.managed_schema,'managed-schema.json');
+    assert.equal(manifest.content_scripts[0].js[0],'configuration.js');
 });
 test('Chrome and Edge test manifests preserve the shared runtime contract',()=>{
     const source=JSON.parse(read('manifest.json'));
@@ -141,8 +143,9 @@ test('Chrome and Edge test manifests preserve the shared runtime contract',()=>{
         assert.deepEqual(manifest.host_permissions,source.host_permissions);
         assert.deepEqual(manifest.background,source.background);
         assert.deepEqual(manifest.content_scripts,source.content_scripts);
+        assert.deepEqual(manifest.storage,source.storage);
         assert(manifest.name.toLowerCase().includes(target));
-        assert(manifest.version_name.toLowerCase().includes('mid-feature'));
+        assert(manifest.version_name.toLowerCase().includes('release candidate'));
     }
 });
 test('Scrubby masks supported sensitive patterns with stable local placeholders',()=>{
@@ -163,6 +166,29 @@ test('Scrubby rejects invalid SSNs cards and IP addresses',()=>{
     assert.equal(result.text,input);
     assert.equal(result.replacements.length,0);
 });
+test('Scrubby supports labeled health identifiers, profanity, and custom terms',()=>{
+    const context=vm.createContext({globalThis:null});context.globalThis=context;
+    vm.runInContext(read('privacyScrubber.js'),context);
+    const input='DOB: 04/12/1980, MRN A12345, Project Cobalt is damn sensitive.';
+    const result=context.CaptionKeepPrivacyScrubber.scrub(input,{profanityFilterEnabled:true,customTerms:['Project Cobalt']});
+    for(const placeholder of ['[DATE_OF_BIRTH_1]','[MEDICAL_ID_1]','[CUSTOM_TERM_1]','[PROFANITY_1]']) assert(result.text.includes(placeholder));
+    const cleaned=context.CaptionKeepPrivacyScrubber.scrubTranscript([{Name:'alex@example.com',Text:'4111 1111 1111 1111'}]);
+    assert.equal(cleaned.transcript[0].Name,'[EMAIL_1]');
+    assert.equal(cleaned.transcript[0].Text,'[PAYMENT_CARD_1]');
+});
+test('configuration import is bounded and managed policy takes precedence',()=>{
+    const context=vm.createContext({globalThis:null,chrome:{storage:{}}});context.globalThis=context;
+    vm.runInContext(read('configuration.js'),context);
+    const config=context.CaptionKeepConfiguration;
+    const imported=config.parseImport(JSON.stringify({product:'Better CaptionKeep',version:1,settings:{privacyScrubberEnabled:false,customScrubTerms:[' Alpha ','Alpha'],unknown:'drop'}}));
+    assert.equal(imported.privacyScrubberEnabled,false);
+    assert.deepEqual([...imported.customScrubTerms],['Alpha']);
+    assert.equal(Object.hasOwn(imported,'unknown'),false);
+    const effective=config.applyPolicy(imported,{forcePrivacyScrubber:true,disableAiHandoff:true});
+    assert.equal(effective.settings.privacyScrubberEnabled,true);
+    assert.equal(effective.settings.autoAISummary,false);
+    assert(effective.locked.includes('privacyScrubberEnabled'));
+});
 test('AI handoff requires workspace confirmation and supports saved enterprise destinations',()=>{
     const html=read('handoff.html');const script=read('handoff.js');
     assert(html.includes('Confirm the destination workspace'));
@@ -171,6 +197,31 @@ test('AI handoff requires workspace confirmation and supports saved enterprise d
     assert(html.includes('privacyScrubber.js'));
     assert(script.includes('CaptionKeepPrivacyScrubber.scrub'));
     assert(!script.includes('const destinations ='));
+});
+test('Privacy Scrubber is visible, defaults on, and guards unmasked copying',()=>{
+    const popup=read('popup.html');const popupScript=read('popup.js');
+    const handoff=read('handoff.html');const handoffScript=read('handoff.js');
+    assert(popup.includes('id="privacyScrubberToggle" checked'));
+    assert(popupScript.includes('settings.privacyScrubberEnabled !== false'));
+    assert(popupScript.includes('privacyScrubberEnabled: event.target.checked'));
+    assert(handoff.includes('<h2 id="scrubberTitle">Privacy Scrubber</h2>'));
+    assert(handoffScript.includes("copyButton.textContent = 'Copy cleaned prompt'"));
+    assert(handoffScript.includes("copyButton.textContent = 'Copy unmasked prompt'"));
+    assert(handoffScript.includes('!scrubberToggle.checked && !unmaskedCopyArmed'));
+});
+test('extension pages use only packaged scripts and settings use progressive disclosure',()=>{
+    for(const page of ['popup.html','viewer.html','export.html','handoff.html']) {
+        const html=read(page);
+        for(const match of html.matchAll(/<script[^>]+src="([^"]+)"/g)) {
+            assert(!/^(?:https?:)?\/\//i.test(match[1]),`${page} must not load remote code`);
+            assert(fs.existsSync(path.join(root,match[1])),`${page} references missing script ${match[1]}`);
+        }
+    }
+    const popup=read('popup.html');
+    assert(popup.includes('<details class="settings-group" open>'));
+    for(const section of ['Appearance','Speaker aliases','Export and auto-save','AI handoff and privacy','Naming and timestamps','Configuration portability']) {
+        assert(popup.includes(`<summary>${section}</summary>`));
+    }
 });
 async function contentHarness() {
     const h=harness();h.run(read('content_script.js'));for(let i=0;i<10;i++)await Promise.resolve();return h;
@@ -191,4 +242,14 @@ test('disabling captions stops capture and preserves prior transcript',async()=>
 test('visible transient DOM loss receives a grace interval',async()=>{
     const h=await contentHarness();h.run('wasInMeeting=true;capturing=true;sourceMissingSince=Date.now()-5000;');await h.run('handleMeetingStateChange()');
     assert.equal(h.run('capturing'),true);assert(!h.messages.some(m=>m.message==='meeting_ended'));
+});
+test('a recent same-page checkpoint restores captions and warns about the gap',async()=>{
+    const h=harness();
+    h.data.active_capture_v1={transcript:[{Name:'A',Text:'before reload',Time:'10:00'}],meetingTitle:'Synthetic meeting',
+        recordingStartTime:new Date(Date.now()-60000).toISOString(),lastBackup:new Date().toISOString(),
+        documentSessionId:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',pageUrl:'https://teams.microsoft.com/'};
+    h.run(read('content_script.js'));for(let i=0;i<12;i++)await Promise.resolve();
+    assert.equal(h.run('transcriptArray.length'),1);
+    assert.equal(h.run('documentSessionId'),'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    assert.match(h.run('checkpointError'),/resumed from a recovery checkpoint/i);
 });

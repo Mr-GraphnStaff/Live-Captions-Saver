@@ -38,7 +38,7 @@ async function resolveSavePreferences({ forAutoSave = false } = {}) {
 }
 
 
-const AI_ASSISTANT_TARGETS = {chatgpt:true, claude:true, claude_console:true, gemini:true};
+const AI_ASSISTANT_TARGETS = {chatgpt:true, claude:true, claude_console:true, copilot:true, gemini:true};
 
 async function openAiAssistantTabs(providers, prompt, meetingTitle) {
     if (!Array.isArray(providers) || !providers.length || typeof prompt !== 'string') return;
