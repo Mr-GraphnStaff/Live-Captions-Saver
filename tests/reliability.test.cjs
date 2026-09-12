@@ -103,8 +103,28 @@ test('worker acknowledges success and ignores unrelated messages',async()=>{
 test('exports stage locally and navigate only to an internal save page',async()=>{
     const h=harness();h.run(read('service_worker.js'));
     await h.run("downloadFile('CON.txt','Synthetic private words','text/plain',true)");
-    const job=Object.values(h.data)[0];assert.equal(job.filename,'_CON.txt');assert.equal(job.content,'Synthetic private words');assert.equal(job.automatic,true);
+    const job=Object.values(h.data)[0];assert.equal(job.filename,'_CON.txt');assert.equal(job.browserFilename,'_CON.txt');assert.equal(job.content,'Synthetic private words');assert.equal(job.automatic,true);
     assert(h.tabs[0].url.startsWith('chrome-extension://test/export.html?job='));
+});
+test('manual Downloads subfolders survive export staging',async()=>{
+    const h=harness();h.run(read('service_worker.js'));
+    await h.run("downloadFile('Transcripts/Teams/Test.txt','Synthetic','text/plain',false)");
+    const job=Object.values(h.data)[0];
+    assert.equal(job.filename,'Test.txt');
+    assert.equal(job.browserFilename,'Transcripts/Teams/Test.txt');
+    assert.equal(h.run("sanitizeSubfolderPath('../Transcripts/../Teams')"),'Transcripts/Teams');
+});
+test('export page keeps a usable manual fallback without the direct folder API',()=>{
+    const html=read('export.html');
+    const script=read('export.js');
+    for(const id of ['manual-folder','remember-manual-folder','open-downloads-folder']) assert(html.includes(`id="${id}"`));
+    assert(script.includes('chrome.downloads.showDefaultFolder()'));
+    assert(script.includes("saveAsType:saveLocation ? 'custom' : 'downloads'"));
+    assert(!script.includes("disabled = busy || !('showDirectoryPicker' in window)"));
+});
+test('legacy default save behavior migrates to the Downloads option',()=>{
+    assert(read('popup.js').includes("settings.saveAsType === 'default' ? 'downloads'"));
+    assert(read('service_worker.js').includes("settings.saveAsType === 'default' ? 'downloads'"));
 });
 test('AI handoff never navigates transcript text to a provider',async()=>{
     const h=harness();h.run(read('service_worker.js'));await h.run("openAiAssistantTabs(['chatgpt'],'Synthetic private words','Test')");

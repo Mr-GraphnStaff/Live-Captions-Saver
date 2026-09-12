@@ -20,13 +20,13 @@ function sanitizeSubfolderPath(path) {
     return path
         .split(/[\\/]+/)
         .map(segment => segment.trim().replace(/[<>:"/\\|?*\x00-\x1F]/g, '_'))
-        .filter(Boolean)
+        .filter(segment => segment && segment !== '.' && segment !== '..')
         .join('/');
 }
 
 async function resolveSavePreferences({ forAutoSave = false } = {}) {
     const settings = await chrome.storage.sync.get(['saveAsType', 'saveLocation']);
-    const saveAsType = settings.saveAsType || 'prompt';
+    const saveAsType = settings.saveAsType === 'default' ? 'downloads' : (settings.saveAsType || 'prompt');
 
     // Auto-save should never show a dialog
     const saveAs = !forAutoSave && saveAsType === 'prompt';
@@ -142,10 +142,20 @@ function formatAsMarkdown(transcript, attendeeReport) {
 // --- Core Actions ---
 async function downloadFile(filename, content, mimeType, automatic = false) {
     const id = `export_${crypto.randomUUID()}`;
-    const leafName = filename.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '');
+    const pathParts = String(filename || '').split(/[\\/]+/);
+    const leafName = (pathParts.pop() || '').replace(/[<>:"|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '');
     if (!leafName || leafName === '.' || leafName === '..') throw new Error('Invalid export filename');
     const safeName = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(leafName) ? '_' + leafName : leafName;
-    await chrome.storage.local.set({[id]:{filename:safeName.slice(0,200), content, mimeType, automatic, createdAt:new Date().toISOString()}});
+    const safeFolder = sanitizeSubfolderPath(pathParts.join('/'));
+    const browserFilename = safeFolder ? `${safeFolder}/${safeName}` : safeName;
+    await chrome.storage.local.set({[id]:{
+        filename:safeName.slice(0,200),
+        browserFilename:browserFilename.slice(0,240),
+        content,
+        mimeType,
+        automatic,
+        createdAt:new Date().toISOString()
+    }});
     await chrome.tabs.create({url:chrome.runtime.getURL(`export.html?job=${id}`), active:!automatic});
 }
 

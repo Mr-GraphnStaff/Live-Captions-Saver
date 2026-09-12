@@ -33,6 +33,8 @@ AI handoffs prepare a local, editable prompt for review before you choose whethe
 
 Open the extension popup and select **Settings → Appearance → Theme**. The selection applies immediately to the popup, transcript viewer, export page, and AI handoff page. CaptionKeep preserves the original cream-and-teal appearance; Follow system responds to the operating-system light or dark preference.
 
+Exports support Save As, a remembered direct folder where the browser permits it, or a manually configured subfolder beneath the browser Downloads directory. The export page can also open the browser's Downloads folder directly.
+
 ## Install for local testing
 
 Version 4.6 is published on Microsoft Edge Add-ons. These steps load the in-development 4.7 extension directly for testing.

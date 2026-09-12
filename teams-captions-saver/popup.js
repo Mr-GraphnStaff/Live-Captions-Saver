@@ -353,9 +353,11 @@ async function loadSettings() {
     updateFilenamePreview();
 
     if (UI_ELEMENTS.saveAsTypeSelect) {
-        const saveAsType = settings.saveAsType || 'prompt';
+        // 4.6 stored "default" for the browser Downloads folder.
+        const saveAsType = settings.saveAsType === 'default' ? 'downloads' : (settings.saveAsType || 'prompt');
         UI_ELEMENTS.saveAsTypeSelect.value = saveAsType;
         updateSaveLocationVisibility(saveAsType);
+        if (settings.saveAsType === 'default') chrome.storage.sync.set({saveAsType});
     }
 
     if (UI_ELEMENTS.saveLocationInput) {

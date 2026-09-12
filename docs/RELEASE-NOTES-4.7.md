@@ -11,5 +11,6 @@ Better CaptionKeep 4.7 is the enterprise-ready release: stronger Teams PWA recov
 - Adds review-first destinations for ChatGPT, Claude, Claude Console, Microsoft Copilot, and Gemini without putting transcript text in navigation URLs.
 - Adds Privacy Scrubber, on by default, with cleaned copy/export, labeled PHI-like identifiers, PCI-like card detection, optional profanity masking, and custom terms.
 - Adds read-only managed policy plus transcript-free user configuration export/import.
+- Restores the 4.6 save-behavior controls, preserves manually configured Downloads subfolders, and provides an Open Downloads fallback when direct folder selection is unavailable or canceled.
 
 Scrubby reduces accidental disclosure risk but does not guarantee regulatory compliance. Zoom and other meeting platforms are intentionally deferred from this production package.

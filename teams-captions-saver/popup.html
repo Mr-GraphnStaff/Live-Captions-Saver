@@ -459,7 +459,20 @@
                     <option value="md">Markdown</option>
                 </select>
             </div>
-            <p>Every export opens a save page with Save As and your selected folder.</p>
+            <div class="setting-item">
+                <label for="saveAsType" class="setting-label">Save behavior</label>
+                <select id="saveAsType">
+                    <option value="prompt">Ask every time (Save As)</option>
+                    <option value="downloads">Browser Downloads folder</option>
+                    <option value="custom">Downloads subfolder</option>
+                </select>
+            </div>
+            <div class="setting-item" id="saveLocationRow" style="display:none">
+                <label for="saveLocation" class="setting-label">Subfolder</label>
+                <input type="text" id="saveLocation" placeholder="Transcripts/Meetings">
+            </div>
+            <p class="small-info-text" id="saveLocationHint" style="display:none">Enter a path beneath your browser's Downloads folder, such as <kbd>Transcripts/Teams</kbd>.</p>
+            <p>Every export opens a save page with Save As, a remembered direct folder when supported, and a manual Downloads-subfolder fallback.</p>
             <button id="exportSettings" type="button">Export folder and pending saves</button>
             <div class="setting-item">
                 <label for="autoSaveOnEndToggle" class="setting-label">Auto-Save on Meeting End</label>

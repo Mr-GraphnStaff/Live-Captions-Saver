@@ -11,8 +11,8 @@
 
 ## Browser and Teams matrix
 
-- [ ] Edge unpacked: install, popup, all themes, config export/import
-- [ ] Chrome unpacked: install, popup, all themes, config export/import
+- [ ] Edge unpacked: install, popup, all themes, config export/import, direct folder picker, manual Downloads subfolder, and Open Downloads fallback
+- [ ] Chrome unpacked: install, popup, all themes, config export/import, direct folder picker, manual Downloads subfolder, and Open Downloads fallback
 - [ ] `teams.cloud.microsoft`: live capture, minimize/restore, reload recovery warning, copy, cleaned copy, TXT/MD export
 - [ ] `teams.microsoft.com`: injection and equivalent capture/export smoke test when the tenant still serves this host
 - [ ] Viewer: search, speaker filter, Scrubby output toggle, history load/delete
